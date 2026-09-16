@@ -9,36 +9,16 @@ plan's date bug (it called 2026-09-22 "Friday"; it's a Tuesday).
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from odp.services.common.dates import resolve_weekday
 from odp.services.llm.provider import LLMProvider
 from odp.services.llm.structured import generate_structured
 
 PROMPT_VERSION = "schedule_intent.v1"
-
-_WEEKDAY_INDEX = {
-    "monday": 0,
-    "tuesday": 1,
-    "wednesday": 2,
-    "thursday": 3,
-    "friday": 4,
-    "saturday": 5,
-    "sunday": 6,
-    # Turkish weekday names, since this is the app's primary language.
-    "pazartesi": 0,
-    "salı": 1,
-    "sali": 1,
-    "çarşamba": 2,
-    "carsamba": 2,
-    "perşembe": 3,
-    "persembe": 3,
-    "cuma": 4,
-    "cumartesi": 5,
-    "pazar": 6,
-}
 
 
 class ScheduleIntent(BaseModel):
@@ -99,11 +79,10 @@ def resolve_target_date(intent: ScheduleIntent, reference_date: date) -> date:
         return date.fromisoformat(intent.explicit_date)
 
     if intent.day_of_week:
-        key = intent.day_of_week.strip().lower()
-        if key not in _WEEKDAY_INDEX:
-            raise ValueError(f"unrecognized day_of_week from model: {intent.day_of_week!r}")
-        target_weekday = _WEEKDAY_INDEX[key]
-        days_ahead = (target_weekday - reference_date.weekday()) % 7
-        return reference_date + timedelta(days=days_ahead)
+        try:
+            return resolve_weekday(intent.day_of_week, reference_date)
+        except ValueError as exc:
+            msg = f"unrecognized day_of_week from model: {intent.day_of_week!r}"
+            raise ValueError(msg) from exc
 
     return reference_date
