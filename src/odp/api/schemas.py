@@ -69,6 +69,10 @@ class ScheduleSuggestRequest(BaseModel):
     text: str
 
 
+class TranscriptImportRequest(BaseModel):
+    text: str
+
+
 class IcsImportRequest(BaseModel):
     ics_text: str
     persist: bool = False
