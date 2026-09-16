@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
+import { IconDownload } from "../components/icons";
 
 export default function Calendar() {
   const queryClient = useQueryClient();
@@ -23,6 +24,7 @@ export default function Calendar() {
         <h2>Dışa aktar</h2>
         <p className="muted">Tüm toplantıları tek bir .ics dosyası olarak indir (RRULE dahil).</p>
         <a className="button-link" href={api.exportIcsUrl()} download>
+          <IconDownload size={13} />
           .ics indir
         </a>
       </div>

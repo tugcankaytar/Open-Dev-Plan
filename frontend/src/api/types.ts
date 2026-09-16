@@ -119,6 +119,27 @@ export interface HealthResponse {
   };
 }
 
+export interface ModelSetting {
+  active_model: string;
+  available_models: string[];
+}
+
+export interface DailyActivity {
+  date: string;
+  created: number;
+  completed: number;
+}
+
+export interface DashboardStats {
+  active_projects: number;
+  open_tasks: number;
+  overdue_tasks: number;
+  meetings: number;
+  pending_proposals: number;
+  task_status_counts: Record<string, number>;
+  weekly_activity: DailyActivity[];
+}
+
 export interface ActionItemPayload {
   title: string;
   owner: string | null;

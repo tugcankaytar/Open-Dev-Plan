@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { IconPlus, IconX } from "../components/icons";
 
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -68,7 +69,8 @@ export default function Meetings() {
           <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
         </label>
         <button type="submit" disabled={createMutation.isPending}>
-          + Toplantı ekle
+          <IconPlus size={13} />
+          Toplantı ekle
         </button>
       </form>
 
@@ -96,7 +98,7 @@ export default function Meetings() {
               </td>
               <td>
                 <button className="icon-button" onClick={() => deleteMutation.mutate(m.id)}>
-                  ✕
+                  <IconX size={13} />
                 </button>
               </td>
             </tr>

@@ -1,7 +1,9 @@
 import type {
+  DashboardStats,
   HealthResponse,
   Job,
   Meeting,
+  ModelSetting,
   Project,
   ProjectStatus,
   Proposal,
@@ -108,6 +110,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ ics_text: icsText, persist }),
     }),
+
+  // --- settings ---
+  getModelSetting: () => request<ModelSetting>("/settings/model"),
+  setModelSetting: (model: string) =>
+    request<ModelSetting>("/settings/model", { method: "PUT", body: JSON.stringify({ model }) }),
+
+  // --- stats ---
+  getDashboardStats: () => request<DashboardStats>("/stats/dashboard"),
 };
 
 export { ApiError };

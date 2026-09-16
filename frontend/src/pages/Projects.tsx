@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
+import { IconPlus, IconX } from "../components/icons";
 import type { ProjectStatus } from "../api/types";
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -59,7 +60,8 @@ export default function Projects() {
           onChange={(e) => setDescription(e.target.value)}
         />
         <button type="submit" disabled={createMutation.isPending}>
-          + Proje ekle
+          <IconPlus size={13} />
+          Proje ekle
         </button>
       </form>
 
@@ -72,7 +74,7 @@ export default function Projects() {
             <div className="card-header">
               <h3>{p.name}</h3>
               <button className="icon-button" onClick={() => deleteMutation.mutate(p.id)} title="Sil">
-                ✕
+                <IconX size={13} />
               </button>
             </div>
             {p.description && <p className="muted">{p.description}</p>}
