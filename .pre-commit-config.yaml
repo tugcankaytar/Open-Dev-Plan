@@ -1,0 +1,26 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.5
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=2048]
+
+  # Personal meeting data must never be committed — a filename check is a
+  # cheap second line of defense behind .gitignore (plan §9).
+  - repo: local
+    hooks:
+      - id: no-user-data
+        name: Block committing recordings / local DB files
+        entry: bash -c 'echo "Refusing to commit audio/DB files — check .gitignore" && exit 1'
+        language: system
+        files: '\.(wav|mp3|m4a|db|db-wal|db-shm)$'

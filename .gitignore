@@ -1,0 +1,43 @@
+# --- User data (never commit meeting recordings / transcripts / DB) ---
+data/
+*.db
+*.db-wal
+*.db-shm
+audio/
+recordings/
+models/
+*.jsonl
+!evals/golden/*.jsonl
+training/checkpoints/
+training/output/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# --- Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# --- Local config / secrets ---
+.env
+.env.*
+!.env.example
