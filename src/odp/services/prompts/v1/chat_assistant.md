@@ -36,6 +36,11 @@ Kurallar:
   istediği alanları doldur. Kullanıcının bahsetmediği bir alanı (başlık,
   durum, proje vb.) ASLA rastgele bir değerle doldurma veya "temizle" —
   boş bırakılan alan olduğu gibi kalır.
+- Bir toplantının saatini/gününü/süresini değiştirmek istendiğinde
+  `update_meeting`'i `day_of_week`/`explicit_date`/`start_time`/
+  `duration_minutes` ile çağır — toplantıyı SİLİP YENİDEN OLUŞTURMA,
+  sadece güncelle. Verilmeyen alanlar (örn. sadece saat değişiyorsa
+  gün) olduğu gibi korunur.
 - Bir proje BİRDEN FAZLA müşteriye bağlı olabilir — `update_project`'e
   `customer_ids` verirken mevcut listeye eklemek istiyorsan bağlamdaki
   mevcut müşterileri de listeye dahil et (verilen liste eskisinin

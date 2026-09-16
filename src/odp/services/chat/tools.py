@@ -42,7 +42,7 @@ from odp.models import (
     TaskPriority,
     TaskStatus,
 )
-from odp.models.time import to_utc_iso, utc_now_iso
+from odp.models.time import from_utc_iso, to_utc_iso, utc_now_iso
 from odp.repositories.customers import CustomersRepository
 from odp.repositories.meetings import MeetingsRepository
 from odp.repositories.projects import ProjectsRepository
@@ -426,8 +426,9 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "function": {
             "name": "update_meeting",
             "description": (
-                "Var olan bir toplantının başlığını, bağlı müşterisini/projesini veya "
-                "durumunu günceller. Bir toplantıyı bir müşteriye bağlamak için bu aracı kullan."
+                "Var olan bir toplantının başlığını, tarihini/saatini/süresini, bağlı "
+                "müşterisini/projesini veya durumunu günceller. Bir toplantıyı bir müşteriye "
+                "bağlamak veya saatini/gününü değiştirmek için bu aracı kullan."
             ),
             "parameters": {
                 "type": "object",
@@ -437,6 +438,31 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                         "description": "Bağlamda verilen toplantı ID'si",
                     },
                     "title": {"type": "string"},
+                    "day_of_week": {
+                        "type": "string",
+                        "description": (
+                            "Yeni gün bir gün adıysa, İngilizce (örn. 'thursday') — tarih "
+                            "HESAPLAMA, sadece gün adını geçir. Sadece saat değişiyorsa boş bırak."
+                        ),
+                    },
+                    "explicit_date": {
+                        "type": "string",
+                        "description": "Yeni tarih YYYY-MM-DD. Sadece saat değişiyorsa boş bırak.",
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "description": (
+                            "Yeni başlangıç saati, HH:MM (24 saat). Sadece gün değişiyorsa boş "
+                            "bırak, mevcut saat korunur."
+                        ),
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "description": (
+                            "Yeni süre, dakika — verilmezse mevcut süre (bitiş-başlangıç farkı) "
+                            "korunur"
+                        ),
+                    },
                     "customer_id": {
                         "type": "string",
                         "description": "Yeni müşteri ID'si; bağlantıyı kaldırmak için 'yok' yaz",
@@ -1034,7 +1060,8 @@ async def _tool_update_meeting(
 ) -> dict[str, Any]:
     meeting_id = str(args.get("meeting_id") or "")
     repo = MeetingsRepository(conn)
-    if repo.get(meeting_id) is None:
+    existing = repo.get(meeting_id)
+    if existing is None:
         return {"error": f"no meeting with id {meeting_id!r} — use the id from the context"}
 
     kwargs: dict[str, Any] = {}
@@ -1050,12 +1077,60 @@ async def _tool_update_meeting(
         except ValueError:
             return {"error": f"unrecognized status: {args.get('status')!r}"}
 
+    day_of_week = args.get("day_of_week")
+    explicit_date = args.get("explicit_date")
+    start_time = args.get("start_time")
+    duration_minutes = args.get("duration_minutes")
+    if day_of_week or explicit_date or start_time or duration_minutes:
+        tz = ZoneInfo(existing.timezone)
+        existing_start_local = from_utc_iso(existing.start_utc).astimezone(tz)
+        existing_duration = from_utc_iso(existing.end_utc) - from_utc_iso(existing.start_utc)
+
+        if explicit_date:
+            try:
+                target = date.fromisoformat(explicit_date)
+            except ValueError:
+                return {"error": f"explicit_date must be YYYY-MM-DD, got {explicit_date!r}"}
+        elif day_of_week:
+            target = resolve_weekday(day_of_week, datetime.now(tz).date())
+        else:
+            target = existing_start_local.date()
+
+        if start_time:
+            try:
+                hh, mm = (int(p) for p in start_time.split(":"))
+            except ValueError:
+                return {"error": f"start_time must be HH:MM, got {start_time!r}"}
+        else:
+            hh, mm = existing_start_local.hour, existing_start_local.minute
+
+        if duration_minutes:
+            duration = timedelta(minutes=int(duration_minutes))
+            if duration <= timedelta(0):
+                return {"error": "duration_minutes must be positive"}
+        elif existing_duration > timedelta(0):
+            duration = existing_duration
+        else:
+            # The stored meeting already had an invalid (zero/negative)
+            # duration — e.g. an end time before its start, entered
+            # through the UI before that was validated. Rather than
+            # refuse to fix the time at all, fall back to a sane default
+            # so the edit can go through; the user can adjust the
+            # duration afterwards if 60 minutes isn't right.
+            duration = timedelta(minutes=60)
+
+        new_start_dt = datetime.combine(target, time(hh, mm), tzinfo=tz)
+        kwargs["start_utc"] = to_utc_iso(new_start_dt)
+        kwargs["end_utc"] = to_utc_iso(new_start_dt + duration)
+
     updated = repo.update(meeting_id, **kwargs)
     events.publish("meetings")
     assert updated is not None
     return {
         "meeting_id": updated.id,
         "title": updated.title,
+        "start_utc": updated.start_utc,
+        "end_utc": updated.end_utc,
         "customer_id": updated.customer_id,
         "project_id": updated.project_id,
         "status": updated.status.value,

@@ -3,6 +3,7 @@ delete-confirmation gate, and the checklist title-lookup tools."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from odp.models import ProposalKind, TaskStatus
@@ -499,6 +500,123 @@ async def test_update_meeting_rejects_unknown_meeting_id(db_conn):
         db_conn, "update_meeting", {"meeting_id": "nope", "title": "X"}, timezone=TZ
     )
     assert "error" in result
+
+
+async def test_update_meeting_changes_start_time_keeps_day_and_duration(db_conn):
+    created = await execute_tool(
+        db_conn,
+        "create_meeting",
+        {
+            "title": "X",
+            "explicit_date": "2026-09-25",
+            "start_time": "10:00",
+            "duration_minutes": 60,
+        },
+        timezone=TZ,
+    )
+    result = await execute_tool(
+        db_conn,
+        "update_meeting",
+        {"meeting_id": created["meeting_id"], "start_time": "13:00"},
+        timezone=TZ,
+    )
+    assert result["result"] == "updated"
+    local_start = from_utc_iso(result["start_utc"]).astimezone(ZoneInfo(TZ))
+    local_end = from_utc_iso(result["end_utc"]).astimezone(ZoneInfo(TZ))
+    assert local_start.date().isoformat() == "2026-09-25"
+    assert (local_start.hour, local_start.minute) == (13, 0)
+    assert local_end - local_start == timedelta(minutes=60)
+
+
+async def test_update_meeting_changes_day_keeps_time_and_duration(db_conn):
+    created = await execute_tool(
+        db_conn,
+        "create_meeting",
+        {
+            "title": "X",
+            "explicit_date": "2026-09-25",
+            "start_time": "10:00",
+            "duration_minutes": 90,
+        },
+        timezone=TZ,
+    )
+    result = await execute_tool(
+        db_conn,
+        "update_meeting",
+        {"meeting_id": created["meeting_id"], "explicit_date": "2026-09-28"},
+        timezone=TZ,
+    )
+    local_start = from_utc_iso(result["start_utc"]).astimezone(ZoneInfo(TZ))
+    local_end = from_utc_iso(result["end_utc"]).astimezone(ZoneInfo(TZ))
+    assert local_start.date().isoformat() == "2026-09-28"
+    assert (local_start.hour, local_start.minute) == (10, 0)
+    assert local_end - local_start == timedelta(minutes=90)
+
+
+async def test_update_meeting_changes_duration_only(db_conn):
+    created = await execute_tool(
+        db_conn,
+        "create_meeting",
+        {
+            "title": "X",
+            "explicit_date": "2026-09-25",
+            "start_time": "10:00",
+            "duration_minutes": 60,
+        },
+        timezone=TZ,
+    )
+    result = await execute_tool(
+        db_conn,
+        "update_meeting",
+        {"meeting_id": created["meeting_id"], "duration_minutes": 30},
+        timezone=TZ,
+    )
+    local_start = from_utc_iso(result["start_utc"]).astimezone(ZoneInfo(TZ))
+    local_end = from_utc_iso(result["end_utc"]).astimezone(ZoneInfo(TZ))
+    assert (local_start.hour, local_start.minute) == (10, 0)
+    assert local_end - local_start == timedelta(minutes=30)
+
+
+async def test_update_meeting_rejects_malformed_start_time(db_conn):
+    created = await execute_tool(
+        db_conn, "create_meeting", {"title": "X", "start_time": "10:00"}, timezone=TZ
+    )
+    result = await execute_tool(
+        db_conn,
+        "update_meeting",
+        {"meeting_id": created["meeting_id"], "start_time": "not-a-time"},
+        timezone=TZ,
+    )
+    assert "error" in result
+
+
+async def test_update_meeting_time_change_self_heals_a_corrupt_stored_duration(db_conn):
+    # A meeting with an end time before its start (possible before the API
+    # validated this — see meetings router) must not block a time fix
+    # forever just because "preserve the existing duration" is nonsensical
+    # here; it should fall back to a sane default instead of erroring.
+    created = await execute_tool(
+        db_conn,
+        "create_meeting",
+        {"title": "X", "explicit_date": "2026-09-25", "start_time": "10:00"},
+        timezone=TZ,
+    )
+    MeetingsRepository(db_conn).update(
+        created["meeting_id"],
+        start_utc="2026-09-25T16:00:00Z",
+        end_utc="2026-09-25T06:00:00Z",  # end before start
+    )
+    result = await execute_tool(
+        db_conn,
+        "update_meeting",
+        {"meeting_id": created["meeting_id"], "start_time": "13:00"},
+        timezone=TZ,
+    )
+    assert result["result"] == "updated"
+    local_start = from_utc_iso(result["start_utc"]).astimezone(ZoneInfo(TZ))
+    local_end = from_utc_iso(result["end_utc"]).astimezone(ZoneInfo(TZ))
+    assert (local_start.hour, local_start.minute) == (13, 0)
+    assert local_end - local_start == timedelta(minutes=60)
 
 
 async def test_delete_meeting_requires_confirmation(db_conn):

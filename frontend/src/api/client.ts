@@ -9,7 +9,6 @@ import type {
   Project,
   ProjectStatus,
   Proposal,
-  ScheduleSuggestResponse,
   Task,
   TaskPriority,
   TaskStatus,
@@ -123,8 +122,12 @@ export const api = {
     customer_id?: string | null;
     location_link?: string;
   }) => request<Meeting>("/meetings", { method: "POST", body: JSON.stringify(body) }),
-  updateMeeting: (id: string, body: Partial<Pick<Meeting, "customer_id" | "project_id" | "title" | "status">>) =>
-    request<Meeting>(`/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  updateMeeting: (
+    id: string,
+    body: Partial<
+      Pick<Meeting, "customer_id" | "project_id" | "title" | "status" | "start_utc" | "end_utc">
+    >
+  ) => request<Meeting>(`/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteMeeting: (id: string) => request<void>(`/meetings/${id}`, { method: "DELETE" }),
   getTranscript: (id: string) => request<TranscriptSegment[]>(`/meetings/${id}/transcript`),
   importTranscriptText: (id: string, text: string) =>
@@ -146,12 +149,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action, payload }),
     }),
-  suggestSchedule: (text: string) =>
-    request<ScheduleSuggestResponse>("/schedule/suggest", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    }),
-
   // --- jobs ---
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
 

@@ -4,9 +4,32 @@ import { useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { IconCheck, IconEdit, IconX } from "../components/icons";
 import { useJobStream } from "../hooks/useJobStream";
-import type { ActionItemPayload, DecisionPayload, Proposal, SummaryPayload } from "../api/types";
+import type {
+  ActionItemPayload,
+  DecisionPayload,
+  MeetingStatus,
+  Proposal,
+  SummaryPayload,
+} from "../api/types";
 
 const KIND_LABEL: Record<string, string> = { task: "GÖREV", decision: "KARAR", summary: "ÖZET" };
+
+const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
+  scheduled: "Planlandı",
+  recorded: "Kaydedildi",
+  transcribing: "Deşifre ediliyor",
+  transcribed: "Deşifre edildi",
+  processed: "İşlendi",
+  cancelled: "İptal edildi",
+};
+
+function toLocalInputValue(iso: string): string {
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+}
 
 export default function MeetingDetail() {
   // Route is always /meetings/:meetingId, so this is defined whenever the
@@ -31,7 +54,15 @@ export default function MeetingDetail() {
     enabled: !!meetingId,
   });
   const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: api.listCustomers });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
   const customerName = customers?.find((c) => c.id === meeting?.customer_id)?.name;
+
+  const [editing, setEditing] = useState(false);
+
+  const updateMutation = useMutation({
+    mutationFn: (patch: Parameters<typeof api.updateMeeting>[1]) => api.updateMeeting(meetingId, patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] }),
+  });
 
   const [pasteText, setPasteText] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -60,7 +91,7 @@ export default function MeetingDetail() {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="faint" style={{ fontSize: 11.5, marginBottom: 4 }}>
             Toplantılar / <span style={{ color: "var(--text-muted)" }}>{meeting?.title ?? "…"}</span>
           </div>
@@ -74,7 +105,96 @@ export default function MeetingDetail() {
               {customerName && <span className="pill mono">{customerName}</span>}
             </div>
           )}
+
+          {meeting && editing && (
+            <div className="card" style={{ marginTop: 12, marginBottom: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <label className="field-label">
+                  Başlık
+                  <input
+                    value={meeting.title}
+                    onChange={(e) => updateMutation.mutate({ title: e.target.value })}
+                  />
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label className="field-label">
+                    Başlangıç
+                    <input
+                      type="datetime-local"
+                      value={toLocalInputValue(meeting.start_utc)}
+                      onChange={(e) =>
+                        updateMutation.mutate({ start_utc: new Date(e.target.value).toISOString() })
+                      }
+                    />
+                  </label>
+                  <label className="field-label">
+                    Bitiş
+                    <input
+                      type="datetime-local"
+                      value={toLocalInputValue(meeting.end_utc)}
+                      onChange={(e) =>
+                        updateMutation.mutate({ end_utc: new Date(e.target.value).toISOString() })
+                      }
+                    />
+                  </label>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label className="field-label">
+                    Durum
+                    <select
+                      value={meeting.status}
+                      onChange={(e) =>
+                        updateMutation.mutate({ status: e.target.value as MeetingStatus })
+                      }
+                    >
+                      {Object.entries(MEETING_STATUS_LABELS).map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-label">
+                    Müşteri
+                    <select
+                      value={meeting.customer_id ?? ""}
+                      onChange={(e) =>
+                        updateMutation.mutate({ customer_id: e.target.value || null })
+                      }
+                    >
+                      <option value="">Müşteri yok</option>
+                      {customers?.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="field-label">
+                  Proje
+                  <select
+                    value={meeting.project_id ?? ""}
+                    onChange={(e) => updateMutation.mutate({ project_id: e.target.value || null })}
+                  >
+                    <option value="">Proje yok</option>
+                    {projects?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
+        {meeting && (
+          <button className="secondary" onClick={() => setEditing((v) => !v)} title="Toplantıyı düzenle">
+            <IconEdit size={13} />
+            {editing ? "Düzenlemeyi kapat" : "Düzenle"}
+          </button>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>

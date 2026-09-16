@@ -121,18 +121,6 @@ export interface Job {
   finished_at: string | null;
 }
 
-export interface TimeSlotOut {
-  start_utc: string;
-  end_utc: string;
-}
-
-export interface ScheduleSuggestResponse {
-  target_date: string;
-  duration_minutes: number;
-  participant_hint: string | null;
-  slots: TimeSlotOut[];
-}
-
 export interface HealthResponse {
   status: string;
   db: { ok: boolean; path: string };

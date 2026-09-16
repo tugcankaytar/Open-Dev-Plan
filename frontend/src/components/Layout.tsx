@@ -8,7 +8,6 @@ import {
   IconBriefcase,
   IconCalendar,
   IconChecklist,
-  IconClock,
   IconDashboard,
   IconFolder,
   IconMeeting,
@@ -20,7 +19,6 @@ const NAV_ITEMS = [
   { to: "/projects", label: "Projeler", Icon: IconFolder },
   { to: "/meetings", label: "Toplantılar", Icon: IconMeeting },
   { to: "/tasks", label: "Görevler", Icon: IconChecklist },
-  { to: "/schedule", label: "Planlama", Icon: IconClock },
   { to: "/calendar", label: "Takvim", Icon: IconCalendar },
 ];
 
