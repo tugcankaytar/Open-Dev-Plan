@@ -26,7 +26,11 @@ Toplantı sesleri ve iş planları küçük bir ekibin ürettiği en hassas veri
 
 ## Durum
 
-🚧 Erken geliştirme aşamasında.
+🚧 Erken geliştirme aşamasında, ama temel döngü uçtan uca çalışıyor ve testlerle kaplı (gerçek yerel modellere karşı canlı bir çalıştırma dahil — bkz. `evals/README.md`).
+
+**Şu an çalışıyor:** SQLite şema + migration'lar · yerel LLM sağlayıcı soyutlaması (Ollama, şemaya kısıtlanmış JSON çıktı) · dayanıklı/GPU-koordineli iş kuyruğu · toplantı → yapılandırılmış çıkarım hattı (aksiyon maddesi, karar, özet) — her sonuç bir *proposal* olarak düşer, hiçbiri otomatik olarak bir domain tablosuna yazılmaz · deterministik (LLM'siz) toplantı planlayıcı ve çakışma tespiti · RRULE destekli `.ics` dışa/içe aktarım · tam HTTP API + SSE iş ilerlemesi · çıkarım modelini tahminle değil veriyle seçen bir eval harness · kendi onayladığınız/düzelttiğiniz proposal'ları okuyan bir fine-tuning veri seti ihraç script'i.
+
+**Henüz kurulmadı:** web arayüzü (Kanban/Gantt/takvim görünümleri — API hazır, frontend değil) · canlı toplantı kaydı + Whisper deşifresi (şimdilik sadece elle transkript içe aktarımı bağlı) · hibrit tam metin/anlamsal arama · günlük brief/rapor · kurulum sihirbazı. Sürüm sürüm neyin geldiği için `CHANGELOG.md`'ye bakın.
 
 ## Donanım
 

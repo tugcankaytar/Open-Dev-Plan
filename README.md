@@ -26,7 +26,11 @@ Meeting audio and business plans are some of the most sensitive data a small tea
 
 ## Status
 
-🚧 Early development. See [the architecture plan](#) for the full design and build order.
+🚧 Early development, but the core loop works end-to-end today and is covered by tests (including a live run against real local models — see `evals/README.md`).
+
+**Working now:** SQLite schema + migrations · local-LLM provider abstraction (Ollama, schema-constrained JSON output) · durable/GPU-coordinated job queue · meeting → structured extraction pipeline (action items, decisions, summary), with every result landing as a human-reviewed *proposal*, never written to a domain table automatically · deterministic (non-LLM) meeting scheduler and conflict detection · `.ics` export/import with RRULE · full HTTP API + SSE job progress · an eval harness that picks the extraction model from data, not assumption · a fine-tuning dataset export script that reads your own approved/corrected proposals.
+
+**Not yet built:** the web UI (Kanban/Gantt/calendar views — the API is ready, the frontend isn't) · live meeting recording + Whisper transcription (only manual transcript import is wired up so far) · hybrid full-text/semantic search · daily briefing/reports · an installer/setup wizard. See `CHANGELOG.md` for what's landed release by release.
 
 ## Hardware
 
