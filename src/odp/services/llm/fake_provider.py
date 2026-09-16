@@ -15,6 +15,7 @@ Two modes:
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,6 +46,7 @@ class FakeLLMProvider:
 
     _json_responses: list[_ScriptedResponse] = field(default_factory=list)
     _text_responses: list[_ScriptedResponse] = field(default_factory=list)
+    _stream_chat_responses: list[tuple[str, list[str]]] = field(default_factory=list)
     _embeddings: dict[str, list[float]] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
 
@@ -59,6 +61,9 @@ class FakeLLMProvider:
         self, prompt_contains: str, response: str, *, system_contains: str | None = None
     ) -> None:
         self._text_responses.append(_ScriptedResponse(prompt_contains, system_contains, response))
+
+    def add_stream_chat_response(self, last_message_contains: str, chunks: list[str]) -> None:
+        self._stream_chat_responses.append((last_message_contains, chunks))
 
     def add_embedding(self, text: str, vector: list[float]) -> None:
         self._embeddings[text] = vector
@@ -95,6 +100,24 @@ class FakeLLMProvider:
                 return scripted.response
         raise LookupError(
             f"FakeLLMProvider: no scripted text response matches prompt: {prompt[:200]!r}"
+        )
+
+    async def stream_chat(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.4,
+    ) -> AsyncIterator[str]:
+        last_content = messages[-1]["content"] if messages else ""
+        self.calls.append({"kind": "stream_chat", "prompt": last_content, "model": model})
+        for prompt_contains, chunks in self._stream_chat_responses:
+            if prompt_contains in last_content:
+                for chunk in chunks:
+                    yield chunk
+                return
+        raise LookupError(
+            f"FakeLLMProvider: no scripted stream_chat response matches: {last_content[:200]!r}"
         )
 
     async def embed(self, *, text: str, model: str) -> list[float]:

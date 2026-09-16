@@ -12,6 +12,7 @@ import sqlite3
 from odp.config import Settings
 from odp.jobs.worker import ProgressCallback, Worker
 from odp.models import Job, JobType
+from odp.repositories.app_settings import AppSettingsRepository
 from odp.services.extraction.pipeline import extract_meeting
 from odp.services.llm.provider import LLMProvider
 
@@ -21,12 +22,15 @@ def register_handlers(
 ) -> None:
     async def handle_extraction(job: Job, on_progress: ProgressCallback) -> None:
         meeting_id = job.payload["meeting_id"]
+        # Looked up at execution time (not registration time) so a model
+        # switch from the sidebar applies to the next run immediately.
+        model = AppSettingsRepository(conn).get_active_model(settings.extraction_model)
         await extract_meeting(
             conn,
             provider,
             meeting_id=meeting_id,
-            extraction_model=settings.extraction_model,
-            prose_model=settings.prose_model,
+            extraction_model=model,
+            prose_model=model,
             embedding_model=settings.embedding_model,
         )
 

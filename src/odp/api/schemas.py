@@ -69,6 +69,16 @@ class ScheduleSuggestRequest(BaseModel):
     text: str
 
 
+class ChatTurnIn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list[ChatTurnIn] = []
+
+
 class TranscriptImportRequest(BaseModel):
     text: str
 
@@ -76,6 +86,22 @@ class TranscriptImportRequest(BaseModel):
 class IcsImportRequest(BaseModel):
     ics_text: str
     persist: bool = False
+
+
+class DailyActivity(BaseModel):
+    date: str
+    created: int
+    completed: int
+
+
+class DashboardStats(BaseModel):
+    active_projects: int
+    open_tasks: int
+    overdue_tasks: int
+    meetings: int
+    pending_proposals: int
+    task_status_counts: dict[str, int]
+    weekly_activity: list[DailyActivity]
 
 
 class TimeSlotOut(BaseModel):

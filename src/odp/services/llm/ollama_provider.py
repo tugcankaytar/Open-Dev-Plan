@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any
 
 import ollama
@@ -65,6 +66,29 @@ class OllamaProvider:
             options={"temperature": temperature},
         )
         return str(response["message"]["content"])
+
+    async def stream_chat(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.4,
+    ) -> AsyncIterator[str]:
+        # think=False: several local models default to emitting a chain-of-
+        # thought block before any visible content (confirmed live on both
+        # gpt-oss:20b and qwen3:14b), which would otherwise make the chat
+        # panel sit silent for several seconds before anything streams.
+        stream = await self._client.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+            think=False,
+            options={"temperature": temperature},
+        )
+        async for chunk in stream:
+            content = chunk.message.content
+            if content:
+                yield content
 
     async def embed(self, *, text: str, model: str) -> list[float]:
         response = await self._client.embed(model=model, input=text)

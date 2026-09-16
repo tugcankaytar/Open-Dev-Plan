@@ -11,6 +11,7 @@ Two reasons, not one:
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -44,6 +45,19 @@ class LLMProvider(Protocol):
         temperature: float = 0.4,
     ) -> str:
         """Generate free-form prose (summaries, briefs) — no schema."""
+        ...
+
+    def stream_chat(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        model: str,
+        temperature: float = 0.4,
+    ) -> AsyncIterator[str]:
+        """Stream a multi-turn chat reply as text deltas (the chat panel's
+        backend). `messages` is `[{"role": "system"|"user"|"assistant",
+        "content": ...}, ...]`, ending on the newest user turn.
+        """
         ...
 
     async def embed(self, *, text: str, model: str) -> list[float]:

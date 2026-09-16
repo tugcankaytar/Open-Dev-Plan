@@ -21,6 +21,7 @@ from odp.config import Settings
 from odp.jobs.queue import JobQueue
 from odp.models import Job, JobType, Proposal
 from odp.models.time import to_utc_iso
+from odp.repositories.app_settings import AppSettingsRepository
 from odp.services.llm.provider import LLMProvider
 from odp.services.proposals import resolve_proposal
 from odp.services.proposals.resolve import ProposalResolutionError
@@ -60,11 +61,12 @@ async def schedule_suggest(
     provider: LLMProvider = Depends(get_llm_provider),
     settings: Settings = Depends(get_settings_dep),
 ) -> ScheduleSuggestResponse:
+    model = AppSettingsRepository(conn).get_active_model(settings.extraction_model)
     suggestion = await suggest_meeting_slots(
         conn,
         provider,
         text=body.text,
-        model=settings.extraction_model,
+        model=model,
         timezone=settings.default_timezone,
     )
     return ScheduleSuggestResponse(
