@@ -7,9 +7,13 @@ Thanks for considering a contribution! This is an early-stage project — expect
 ```bash
 uv sync --group dev
 uv run pre-commit install
+
+cd frontend && npm install && cd ..
 ```
 
-You'll also want [Ollama](https://ollama.com) running locally with at least one model pulled (`ollama pull qwen3:14b` is a reasonable small default) to exercise anything beyond the deterministic tests.
+You'll also want [Ollama](https://ollama.com) running locally with at least one model pulled (`ollama pull gpt-oss:20b` is the current default — see `evals/README.md` for why) to exercise anything beyond the deterministic tests.
+
+For frontend work, `cd frontend && npm run dev` gives hot reload against a separately-running backend (`uv run odp serve --no-browser`); `npm run lint` and `npm run build` (which also type-checks via `tsc -b`) are the frontend's equivalent of the backend's ruff/mypy checks below.
 
 ## Workflow
 

@@ -28,9 +28,9 @@ Meeting audio and business plans are some of the most sensitive data a small tea
 
 🚧 Early development, but the core loop works end-to-end today and is covered by tests (including a live run against real local models — see `evals/README.md`).
 
-**Working now:** SQLite schema + migrations · local-LLM provider abstraction (Ollama, schema-constrained JSON output) · durable/GPU-coordinated job queue · meeting → structured extraction pipeline (action items, decisions, summary), with every result landing as a human-reviewed *proposal*, never written to a domain table automatically · deterministic (non-LLM) meeting scheduler and conflict detection · `.ics` export/import with RRULE · full HTTP API + SSE job progress · an eval harness that picks the extraction model from data, not assumption · a fine-tuning dataset export script that reads your own approved/corrected proposals.
+**Working now:** SQLite schema + migrations · local-LLM provider abstraction (Ollama, schema-constrained JSON output) · durable/GPU-coordinated job queue · meeting → structured extraction pipeline (action items, decisions, summary), with every result landing as a human-reviewed *proposal*, never written to a domain table automatically · deterministic (non-LLM) meeting scheduler and conflict detection · `.ics` export/import with RRULE · full HTTP API + SSE job progress · an eval harness that picks the extraction model from data, not assumption · a fine-tuning dataset export script that reads your own approved/corrected proposals · a React web UI (dashboard, projects, meetings with transcript paste + live extraction + proposal review, a task Kanban, a natural-language scheduling assistant, calendar import/export) served by the same process as the API.
 
-**Not yet built:** the web UI (Kanban/Gantt/calendar views — the API is ready, the frontend isn't) · live meeting recording + Whisper transcription (only manual transcript import is wired up so far) · hybrid full-text/semantic search · daily briefing/reports · an installer/setup wizard. See `CHANGELOG.md` for what's landed release by release.
+**Not yet built:** a Gantt/critical-path view · live meeting recording + Whisper transcription (manual transcript paste is wired up as a stand-in — see the meeting detail page) · hybrid full-text/semantic search · daily briefing/reports · an installer/setup wizard · drag-and-drop on the Kanban board (status changes via dropdown for now). See `CHANGELOG.md` for what's landed release by release.
 
 ## Hardware
 
@@ -49,12 +49,17 @@ CPU-only works but transcription and generation will be noticeably slower.
 ollama pull gpt-oss:20b   # extraction + Turkish prose (see evals/README.md)
 ollama pull bge-m3        # embeddings for search
 
-# 2. Install and run Open-Dev-Plan (uv manages the Python environment)
+# 2. Build the frontend once (only needed after pulling/updating the repo)
+cd frontend && npm install && npm run build && cd ..
+
+# 3. Install and run Open-Dev-Plan (uv manages the Python environment)
 uv sync
 uv run odp serve
 ```
 
-This opens `http://127.0.0.1:8765` in your browser. First run walks you through checking Ollama connectivity, model availability, GPU detection, and audio device selection.
+Opens `http://127.0.0.1:8765` — the API and the built frontend are served from the same process. No setup wizard yet (see Status below); `/api/health` is the quickest way to check Ollama connectivity and model availability in the meantime.
+
+For frontend development with hot reload instead, run `uv run odp serve --no-browser` in one terminal and `cd frontend && npm run dev` in another — Vite proxies `/api` to the backend (see `frontend/vite.config.ts`) and serves on `http://127.0.0.1:5173`.
 
 ## Development
 

@@ -6,8 +6,11 @@ import asyncio
 import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from odp.api.routers import ai, calendar, health, meetings, projects, stream, tasks
 from odp.config import Settings, get_settings
@@ -59,5 +62,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(calendar.router)
     app.include_router(ai.router)
     app.include_router(stream.router)
+
+    # Serve the built frontend (npm run build in frontend/) if present, so
+    # `uv run odp serve` alone is a complete app — no separate Node process
+    # needed outside development. All /api/* routes above are registered
+    # first and take precedence; this mount and the catch-all route below
+    # only ever see what they don't match. Falls back to API-only
+    # (frontend/dist absent) without error, e.g. in CI or a fresh checkout
+    # before `npm run build` has run.
+    #
+    # TODO(packaging): once this ships via `uv tool install`, frontend/dist
+    # needs to be included as package data (hatchling [tool.hatch.build]
+    # force-include) so it's present outside a git checkout too.
+    frontend_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    if frontend_dist.is_dir():
+        app.mount(
+            "/assets", StaticFiles(directory=frontend_dist / "assets"), name="frontend-assets"
+        )
+        index_path = frontend_dist / "index.html"
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str) -> FileResponse:
+            # Any other real file in dist/ (favicon, etc.) is served as-is;
+            # everything else falls back to index.html so react-router's
+            # client-side routes (e.g. a refresh on /tasks) work. Resolve
+            # and re-check containment to reject a "../" path-traversal
+            # attempt rather than serving a file outside frontend_dist.
+            candidate = (frontend_dist / full_path).resolve()
+            is_within_dist = candidate.is_relative_to(frontend_dist)
+            if full_path and is_within_dist and candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(index_path)
 
     return app

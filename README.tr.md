@@ -28,9 +28,9 @@ Toplantı sesleri ve iş planları küçük bir ekibin ürettiği en hassas veri
 
 🚧 Erken geliştirme aşamasında, ama temel döngü uçtan uca çalışıyor ve testlerle kaplı (gerçek yerel modellere karşı canlı bir çalıştırma dahil — bkz. `evals/README.md`).
 
-**Şu an çalışıyor:** SQLite şema + migration'lar · yerel LLM sağlayıcı soyutlaması (Ollama, şemaya kısıtlanmış JSON çıktı) · dayanıklı/GPU-koordineli iş kuyruğu · toplantı → yapılandırılmış çıkarım hattı (aksiyon maddesi, karar, özet) — her sonuç bir *proposal* olarak düşer, hiçbiri otomatik olarak bir domain tablosuna yazılmaz · deterministik (LLM'siz) toplantı planlayıcı ve çakışma tespiti · RRULE destekli `.ics` dışa/içe aktarım · tam HTTP API + SSE iş ilerlemesi · çıkarım modelini tahminle değil veriyle seçen bir eval harness · kendi onayladığınız/düzelttiğiniz proposal'ları okuyan bir fine-tuning veri seti ihraç script'i.
+**Şu an çalışıyor:** SQLite şema + migration'lar · yerel LLM sağlayıcı soyutlaması (Ollama, şemaya kısıtlanmış JSON çıktı) · dayanıklı/GPU-koordineli iş kuyruğu · toplantı → yapılandırılmış çıkarım hattı (aksiyon maddesi, karar, özet) — her sonuç bir *proposal* olarak düşer, hiçbiri otomatik olarak bir domain tablosuna yazılmaz · deterministik (LLM'siz) toplantı planlayıcı ve çakışma tespiti · RRULE destekli `.ics` dışa/içe aktarım · tam HTTP API + SSE iş ilerlemesi · çıkarım modelini tahminle değil veriyle seçen bir eval harness · kendi onayladığınız/düzelttiğiniz proposal'ları okuyan bir fine-tuning veri seti ihraç script'i · API ile aynı süreçten servis edilen bir React web arayüzü (panel, projeler, transkript yapıştırma + canlı çıkarım + proposal inceleme ekranlı toplantılar, görev Kanban'ı, doğal dilden planlama asistanı, takvim içe/dışa aktarım).
 
-**Henüz kurulmadı:** web arayüzü (Kanban/Gantt/takvim görünümleri — API hazır, frontend değil) · canlı toplantı kaydı + Whisper deşifresi (şimdilik sadece elle transkript içe aktarımı bağlı) · hibrit tam metin/anlamsal arama · günlük brief/rapor · kurulum sihirbazı. Sürüm sürüm neyin geldiği için `CHANGELOG.md`'ye bakın.
+**Henüz kurulmadı:** Gantt/kritik yol görünümü · canlı toplantı kaydı + Whisper deşifresi (elle transkript yapıştırma bir yer tutucu olarak bağlı — toplantı detay sayfasına bakın) · hibrit tam metin/anlamsal arama · günlük brief/rapor · kurulum sihirbazı · Kanban panosunda sürükle-bırak (şimdilik durum değişikliği açılır menüyle). Sürüm sürüm neyin geldiği için `CHANGELOG.md`'ye bakın.
 
 ## Donanım
 
@@ -49,12 +49,17 @@ Sadece CPU ile de çalışır ama deşifre ve üretim belirgin şekilde yavaşla
 ollama pull gpt-oss:20b   # çıkarım + Türkçe düzyazı (bkz. evals/README.md)
 ollama pull bge-m3        # arama için embedding
 
-# 2. Open-Dev-Plan'ı kurun ve çalıştırın (uv, Python ortamını yönetir)
+# 2. Frontend'i bir kez build edin (sadece repo güncellendiğinde tekrar gerekir)
+cd frontend && npm install && npm run build && cd ..
+
+# 3. Open-Dev-Plan'ı kurun ve çalıştırın (uv, Python ortamını yönetir)
 uv sync
 uv run odp serve
 ```
 
-Bu komut tarayıcınızda `http://127.0.0.1:8765` adresini açar. İlk çalıştırma; Ollama bağlantısını, model varlığını, GPU tespitini ve ses cihazı seçimini adım adım kontrol eder.
+`http://127.0.0.1:8765` adresini açar — API ve build edilmiş frontend aynı süreçten servis edilir. Henüz bir kurulum sihirbazı yok (bkz. aşağıdaki Durum); bu arada Ollama bağlantısını ve model varlığını kontrol etmenin en hızlı yolu `/api/health`.
+
+Frontend'i hot-reload ile geliştirmek istersen: bir terminalde `uv run odp serve --no-browser`, başka bir terminalde `cd frontend && npm run dev` çalıştır — Vite `/api` isteklerini backend'e proxy'ler (bkz. `frontend/vite.config.ts`) ve `http://127.0.0.1:5173` üzerinden servis eder.
 
 ## Geliştirme
 
