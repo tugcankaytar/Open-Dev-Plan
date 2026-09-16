@@ -38,7 +38,7 @@ async def chat(
 
     async def event_source() -> AsyncIterator[str]:
         try:
-            async for delta in stream_chat_reply(
+            async for event in stream_chat_reply(
                 conn,
                 provider,
                 message=body.message,
@@ -46,7 +46,7 @@ async def chat(
                 model=model,
                 timezone=settings.default_timezone,
             ):
-                yield f"data: {json.dumps({'delta': delta})}\n\n"
+                yield f"data: {event.model_dump_json(exclude_none=True)}\n\n"
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as exc:
             # Surface any failure to the chat UI as a message rather than a

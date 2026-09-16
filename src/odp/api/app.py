@@ -12,7 +12,18 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from odp.api.routers import ai, calendar, chat, health, meetings, projects, stats, stream, tasks
+from odp.api.routers import (
+    ai,
+    calendar,
+    chat,
+    customers,
+    health,
+    meetings,
+    projects,
+    stats,
+    stream,
+    tasks,
+)
 from odp.api.routers import settings as settings_router
 from odp.config import Settings, get_settings
 from odp.db import open_db
@@ -57,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(customers.router)
     app.include_router(projects.router)
     app.include_router(tasks.router)
     app.include_router(meetings.router)

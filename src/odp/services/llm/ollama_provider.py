@@ -7,6 +7,8 @@ from typing import Any
 
 import ollama
 
+from odp.services.llm.provider import ChatStreamEvent, ToolCallRequest
+
 
 class OllamaProvider:
     """Talks to a local `ollama serve` instance.
@@ -70,25 +72,34 @@ class OllamaProvider:
     async def stream_chat(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str,
         temperature: float = 0.4,
-    ) -> AsyncIterator[str]:
+        tools: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[ChatStreamEvent]:
         # think=False: several local models default to emitting a chain-of-
         # thought block before any visible content (confirmed live on both
         # gpt-oss:20b and qwen3:14b), which would otherwise make the chat
         # panel sit silent for several seconds before anything streams.
-        stream = await self._client.chat(
-            model=model,
-            messages=messages,
-            stream=True,
-            think=False,
-            options={"temperature": temperature},
-        )
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+            "think": False,
+            "options": {"temperature": temperature},
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        stream = await self._client.chat(**kwargs)
         async for chunk in stream:
-            content = chunk.message.content
-            if content:
-                yield content
+            content = chunk.message.content or ""
+            tool_calls = [
+                ToolCallRequest(name=tc.function.name, arguments=dict(tc.function.arguments))
+                for tc in (chunk.message.tool_calls or [])
+            ]
+            if content or tool_calls:
+                yield ChatStreamEvent(delta=content, tool_calls=tool_calls)
 
     async def embed(self, *, text: str, model: str) -> list[float]:
         response = await self._client.embed(model=model, input=text)

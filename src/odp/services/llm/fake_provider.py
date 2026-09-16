@@ -19,6 +19,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from odp.services.llm.provider import ChatStreamEvent
+
 
 @dataclass(frozen=True, slots=True)
 class _ScriptedResponse:
@@ -35,6 +37,10 @@ def _matches(scripted: _ScriptedResponse, prompt: str, system: str | None) -> bo
     return system is not None and scripted.system_contains in system
 
 
+def _as_events(chunks: list[str | ChatStreamEvent]) -> list[ChatStreamEvent]:
+    return [c if isinstance(c, ChatStreamEvent) else ChatStreamEvent(delta=c) for c in chunks]
+
+
 @dataclass
 class FakeLLMProvider:
     """Deterministic stand-in for OllamaProvider.
@@ -46,7 +52,12 @@ class FakeLLMProvider:
 
     _json_responses: list[_ScriptedResponse] = field(default_factory=list)
     _text_responses: list[_ScriptedResponse] = field(default_factory=list)
-    _stream_chat_responses: list[tuple[str, list[str]]] = field(default_factory=list)
+    _stream_chat_responses: list[tuple[str, list[ChatStreamEvent]]] = field(default_factory=list)
+    # Call-order-based script for multi-turn tool-calling loops, where a
+    # later call's last message is a tool result, not user text — nothing
+    # meaningful to content-match against. Consumed front-to-back,
+    # independently of _stream_chat_responses.
+    _stream_chat_sequence: list[list[ChatStreamEvent]] = field(default_factory=list)
     _embeddings: dict[str, list[float]] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
 
@@ -62,8 +73,16 @@ class FakeLLMProvider:
     ) -> None:
         self._text_responses.append(_ScriptedResponse(prompt_contains, system_contains, response))
 
-    def add_stream_chat_response(self, last_message_contains: str, chunks: list[str]) -> None:
-        self._stream_chat_responses.append((last_message_contains, chunks))
+    def add_stream_chat_response(
+        self, last_message_contains: str, chunks: list[str | ChatStreamEvent]
+    ) -> None:
+        self._stream_chat_responses.append((last_message_contains, _as_events(chunks)))
+
+    def queue_stream_chat_call(self, events: list[str | ChatStreamEvent]) -> None:
+        """Script the Nth call to stream_chat() by call order (N = however
+        many are already queued), for tool-calling loop tests where later
+        calls end on a tool-result message rather than user text."""
+        self._stream_chat_sequence.append(_as_events(events))
 
     def add_embedding(self, text: str, vector: list[float]) -> None:
         self._embeddings[text] = vector
@@ -105,16 +124,23 @@ class FakeLLMProvider:
     async def stream_chat(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str,
         temperature: float = 0.4,
-    ) -> AsyncIterator[str]:
-        last_content = messages[-1]["content"] if messages else ""
+        tools: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[ChatStreamEvent]:
+        last_content = str(messages[-1].get("content", "")) if messages else ""
         self.calls.append({"kind": "stream_chat", "prompt": last_content, "model": model})
-        for prompt_contains, chunks in self._stream_chat_responses:
+
+        if self._stream_chat_sequence:
+            for event in self._stream_chat_sequence.pop(0):
+                yield event
+            return
+
+        for prompt_contains, events in self._stream_chat_responses:
             if prompt_contains in last_content:
-                for chunk in chunks:
-                    yield chunk
+                for event in events:
+                    yield event
                 return
         raise LookupError(
             f"FakeLLMProvider: no scripted stream_chat response matches: {last_content[:200]!r}"

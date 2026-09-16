@@ -12,18 +12,30 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from odp.models import DependencyType, ProjectStatus, TaskStatus
+from odp.models import DependencyType, ProjectStatus, TaskPriority, TaskStatus
+
+
+class CustomerCreate(BaseModel):
+    name: str
+    description: str = ""
+
+
+class CustomerUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
 
 
 class ProjectCreate(BaseModel):
     name: str
     description: str = ""
+    customer_id: str | None = None
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
+    customer_id: str | None = None
 
 
 class TaskCreate(BaseModel):
@@ -31,6 +43,9 @@ class TaskCreate(BaseModel):
     description: str = ""
     owner: str | None = None
     due_utc: str | None = None
+    start_utc: str | None = None
+    priority: TaskPriority = TaskPriority.medium
+    tags: list[str] = []
     project_id: str | None = None
     meeting_id: str | None = None
 
@@ -40,8 +55,19 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     owner: str | None = None
     due_utc: str | None = None
+    start_utc: str | None = None
+    priority: TaskPriority | None = None
+    tags: list[str] | None = None
     status: TaskStatus | None = None
     project_id: str | None = None
+
+
+class ChecklistItemCreate(BaseModel):
+    title: str
+
+
+class ChecklistItemUpdate(BaseModel):
+    done: bool
 
 
 class TaskDependencyCreate(BaseModel):

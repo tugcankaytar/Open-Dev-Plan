@@ -10,13 +10,23 @@ export type MeetingStatus =
   | "processed"
   | "cancelled";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
 export type ProposalKind = "task" | "decision" | "summary" | "schedule_intent";
 export type ProposalStatus = "pending" | "approved" | "edited" | "rejected";
 export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export type JobType = "transcription" | "extraction" | "embedding" | "briefing";
 
+export interface Customer {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Project {
   id: string;
+  customer_id: string | null;
   name: string;
   description: string;
   status: ProjectStatus;
@@ -60,11 +70,25 @@ export interface Task {
   description: string;
   owner: string | null;
   due_utc: string | null;
+  start_utc: string | null;
+  priority: TaskPriority;
+  tags: string[];
   status: TaskStatus;
   source_segment_id: string | null;
   confidence: number | null;
   created_at: string;
   updated_at: string;
+  checklist_total: number;
+  checklist_done: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  task_id: string;
+  title: string;
+  done: boolean;
+  seq: number;
+  created_at: string;
 }
 
 export interface Proposal {

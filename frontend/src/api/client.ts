@@ -1,4 +1,6 @@
 import type {
+  ChecklistItem,
+  Customer,
   DashboardStats,
   HealthResponse,
   Job,
@@ -9,6 +11,7 @@ import type {
   Proposal,
   ScheduleSuggestResponse,
   Task,
+  TaskPriority,
   TaskStatus,
   TranscriptSegment,
 } from "./types";
@@ -41,27 +44,73 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface TaskCreateInput {
+  title: string;
+  description?: string;
+  owner?: string;
+  due_utc?: string;
+  start_utc?: string;
+  priority?: TaskPriority;
+  tags?: string[];
+  project_id?: string;
+  meeting_id?: string;
+}
+
+export type TaskUpdateInput = Partial<
+  Pick<
+    Task,
+    "status" | "title" | "description" | "owner" | "due_utc" | "start_utc" | "priority" | "tags" | "project_id"
+  >
+>;
+
 export const api = {
   health: () => request<HealthResponse>("/health"),
 
+  // --- customers ---
+  listCustomers: () => request<Customer[]>("/customers"),
+  createCustomer: (name: string, description = "") =>
+    request<Customer>("/customers", { method: "POST", body: JSON.stringify({ name, description }) }),
+  updateCustomer: (id: string, patch: { name?: string; description?: string }) =>
+    request<Customer>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteCustomer: (id: string) => request<void>(`/customers/${id}`, { method: "DELETE" }),
+
   // --- projects ---
-  listProjects: () => request<Project[]>("/projects"),
-  createProject: (name: string, description = "") =>
-    request<Project>("/projects", { method: "POST", body: JSON.stringify({ name, description }) }),
-  updateProject: (id: string, patch: { status?: ProjectStatus; name?: string; description?: string }) =>
-    request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  listProjects: (customerId?: string) =>
+    request<Project[]>(`/projects${customerId ? `?customer_id=${customerId}` : ""}`),
+  createProject: (name: string, description = "", customerId?: string | null) =>
+    request<Project>("/projects", {
+      method: "POST",
+      body: JSON.stringify({ name, description, customer_id: customerId ?? null }),
+    }),
+  updateProject: (
+    id: string,
+    patch: { status?: ProjectStatus; name?: string; description?: string; customer_id?: string | null }
+  ) => request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
 
   // --- tasks ---
   listTasks: (projectId?: string) =>
     request<Task[]>(`/tasks${projectId ? `?project_id=${projectId}` : ""}`),
-  createTask: (body: { title: string; description?: string; owner?: string; project_id?: string }) =>
+  getTask: (id: string) => request<Task>(`/tasks/${id}`),
+  createTask: (body: TaskCreateInput) =>
     request<Task>("/tasks", { method: "POST", body: JSON.stringify(body) }),
-  updateTask: (id: string, patch: Partial<Pick<Task, "status" | "title" | "owner" | "due_utc">>) =>
+  updateTask: (id: string, patch: TaskUpdateInput) =>
     request<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
   setTaskStatus: (id: string, status: TaskStatus) =>
     request<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+
+  // --- task checklist ---
+  listChecklist: (taskId: string) => request<ChecklistItem[]>(`/tasks/${taskId}/checklist`),
+  addChecklistItem: (taskId: string, title: string) =>
+    request<ChecklistItem>(`/tasks/${taskId}/checklist`, {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    }),
+  setChecklistItemDone: (itemId: string, done: boolean) =>
+    request<void>(`/tasks/checklist/${itemId}`, { method: "PATCH", body: JSON.stringify({ done }) }),
+  deleteChecklistItem: (itemId: string) =>
+    request<void>(`/tasks/checklist/${itemId}`, { method: "DELETE" }),
 
   // --- meetings ---
   listMeetings: () => request<Meeting[]>("/meetings"),

@@ -3,10 +3,19 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { api } from "../api/client";
 import ChatPanel from "./ChatPanel";
-import { IconCalendar, IconChecklist, IconDashboard, IconFolder, IconClock, IconMeeting } from "./icons";
+import {
+  IconBriefcase,
+  IconCalendar,
+  IconChecklist,
+  IconClock,
+  IconDashboard,
+  IconFolder,
+  IconMeeting,
+} from "./icons";
 
 const NAV_ITEMS = [
   { to: "/", label: "Panel", end: true, Icon: IconDashboard },
+  { to: "/customers", label: "Müşteriler", Icon: IconBriefcase },
   { to: "/projects", label: "Projeler", Icon: IconFolder },
   { to: "/meetings", label: "Toplantılar", Icon: IconMeeting },
   { to: "/tasks", label: "Görevler", Icon: IconChecklist },

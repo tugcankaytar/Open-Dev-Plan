@@ -5,8 +5,14 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from odp.api.deps import get_db
-from odp.api.schemas import TaskCreate, TaskDependencyCreate, TaskUpdate
-from odp.models import Task, TaskDependency
+from odp.api.schemas import (
+    ChecklistItemCreate,
+    ChecklistItemUpdate,
+    TaskCreate,
+    TaskDependencyCreate,
+    TaskUpdate,
+)
+from odp.models import ChecklistItem, Task, TaskDependency
 from odp.models.time import utc_now_iso
 from odp.repositories.tasks import TasksRepository
 
@@ -21,6 +27,9 @@ def create_task(body: TaskCreate, conn: sqlite3.Connection = Depends(get_db)) ->
         description=body.description,
         owner=body.owner,
         due_utc=body.due_utc,
+        start_utc=body.start_utc,
+        priority=body.priority,
+        tags=body.tags,
         project_id=body.project_id,
         meeting_id=body.meeting_id,
         created_at=now,
@@ -69,3 +78,30 @@ def add_dependency(
 @router.delete("/dependencies/{dependency_id}", status_code=204)
 def remove_dependency(dependency_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     TasksRepository(conn).remove_dependency(dependency_id)
+
+
+# --- checklist ---
+
+
+@router.get("/{task_id}/checklist", response_model=list[ChecklistItem])
+def list_checklist(task_id: str, conn: sqlite3.Connection = Depends(get_db)) -> list[ChecklistItem]:
+    return TasksRepository(conn).list_checklist_items(task_id)
+
+
+@router.post("/{task_id}/checklist", response_model=ChecklistItem, status_code=201)
+def add_checklist_item(
+    task_id: str, body: ChecklistItemCreate, conn: sqlite3.Connection = Depends(get_db)
+) -> ChecklistItem:
+    return TasksRepository(conn).add_checklist_item(task_id, body.title)
+
+
+@router.patch("/checklist/{item_id}", status_code=204)
+def update_checklist_item(
+    item_id: str, body: ChecklistItemUpdate, conn: sqlite3.Connection = Depends(get_db)
+) -> None:
+    TasksRepository(conn).set_checklist_item_done(item_id, body.done)
+
+
+@router.delete("/checklist/{item_id}", status_code=204)
+def delete_checklist_item(item_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
+    TasksRepository(conn).delete_checklist_item(item_id)

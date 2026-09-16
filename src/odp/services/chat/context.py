@@ -66,7 +66,9 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
     lines.append(f"## Aktif projeler ({len(projects)})")
     if projects:
         for p in projects:
-            lines.append(f"- {p.name}" + (f" — {p.description}" if p.description else ""))
+            lines.append(
+                f"- [id: {p.id}] {p.name}" + (f" — {p.description}" if p.description else "")
+            )
     else:
         lines.append("(yok)")
     lines.append("")
@@ -76,11 +78,17 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
     open_tasks.sort(key=lambda t: t.due_utc or "9999")
     shown_tasks = open_tasks[:MAX_TASKS]
     lines.append(f"## Açık görevler ({len(open_tasks)} toplam, {len(shown_tasks)} gösteriliyor)")
+    lines.append(
+        "(bir görev üzerinde işlem yapman gerekirse — durum değiştirme, alt görev ekleme — "
+        "aşağıdaki [id: ...] değerini kullan, tahmin etme)"
+    )
     if shown_tasks:
         for t in shown_tasks:
             owner = t.owner or "atanmamış"
             due = _due_label(t.due_utc)
-            lines.append(f"- [{t.status.value}] {t.title} — sorumlu: {owner}, son tarih: {due}")
+            lines.append(
+                f"- [id: {t.id}] [{t.status.value}] {t.title} — sorumlu: {owner}, son tarih: {due}"
+            )
     else:
         lines.append("(yok)")
     lines.append("")

@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import Calendar from "./pages/Calendar";
+import Customers from "./pages/Customers";
 import Dashboard from "./pages/Dashboard";
 import MeetingDetail from "./pages/MeetingDetail";
 import Meetings from "./pages/Meetings";
@@ -13,6 +14,7 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/customers" element={<Customers />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/meetings" element={<Meetings />} />
         <Route path="/meetings/:meetingId" element={<MeetingDetail />} />

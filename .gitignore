@@ -5,7 +5,10 @@ data/
 *.db-shm
 audio/
 recordings/
-models/
+# Anchored to repo root — a bare "models/" here would also match (and
+# silently swallow from every commit) our own src/odp/models/ Python
+# package, which is exactly what happened before this line was fixed.
+/models/
 *.jsonl
 !evals/golden/*.jsonl
 training/checkpoints/

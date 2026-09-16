@@ -27,6 +27,15 @@ export function IconFolder(props: IconProps) {
   );
 }
 
+export function IconBriefcase(props: IconProps) {
+  return (
+    <svg {...base(props)} stroke="currentColor" strokeWidth={1.8}>
+      <rect x="3" y="7.5" width="18" height="12" rx="2" />
+      <path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5M3 13h18" />
+    </svg>
+  );
+}
+
 export function IconMeeting(props: IconProps) {
   return (
     <svg {...base(props)} stroke="currentColor" strokeWidth={1.8}>
@@ -126,6 +135,15 @@ export function IconChevronLeft(props: IconProps) {
   return (
     <svg {...base(props)} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+export function IconTrash(props: IconProps) {
+  return (
+    <svg {...base(props)} stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7m-8 0 .7 12.2A2 2 0 0 0 8.7 21h6.6a2 2 0 0 0 2-1.8L18 7" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }

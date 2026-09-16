@@ -12,7 +12,27 @@ Two reasons, not one:
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCallRequest:
+    """One function call the model asked for mid-stream."""
+
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ChatStreamEvent:
+    """One chunk of a streamed chat reply: either a text delta, a set of
+    tool calls the model wants executed (arrives on the final chunk of a
+    turn — Ollama doesn't interleave the two), or both empty at end of
+    stream."""
+
+    delta: str = ""
+    tool_calls: list[ToolCallRequest] = field(default_factory=list)
 
 
 @runtime_checkable
@@ -50,13 +70,18 @@ class LLMProvider(Protocol):
     def stream_chat(
         self,
         *,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str,
         temperature: float = 0.4,
-    ) -> AsyncIterator[str]:
-        """Stream a multi-turn chat reply as text deltas (the chat panel's
-        backend). `messages` is `[{"role": "system"|"user"|"assistant",
-        "content": ...}, ...]`, ending on the newest user turn.
+        tools: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[ChatStreamEvent]:
+        """Stream a multi-turn chat reply (the chat panel's backend).
+
+        `messages` is `[{"role": "system"|"user"|"assistant"|"tool", ...},
+        ...]`, ending on the newest user or tool turn. When `tools` is
+        given, the model may respond with `ChatStreamEvent.tool_calls`
+        instead of (or in addition to) text — the caller is responsible
+        for executing them and continuing the conversation.
         """
         ...
 
