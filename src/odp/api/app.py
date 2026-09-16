@@ -17,6 +17,7 @@ from odp.api.routers import (
     calendar,
     chat,
     customers,
+    events,
     health,
     meetings,
     projects,
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(stats.router)
     app.include_router(chat.router)
     app.include_router(settings_router.router)
+    app.include_router(events.router)
 
     # Serve the built frontend (npm run build in frontend/) if present, so
     # `uv run odp serve` alone is a complete app — no separate Node process

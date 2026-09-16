@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { api } from "../api/client";
+import { useLiveEvents } from "../hooks/useLiveEvents";
 import ChatPanel from "./ChatPanel";
 import {
   IconBriefcase,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
+  useLiveEvents();
   const queryClient = useQueryClient();
   const { data: health } = useQuery({
     queryKey: ["health"],

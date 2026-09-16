@@ -10,6 +10,7 @@ from odp.api.schemas import IcsImportRequest
 from odp.config import Settings
 from odp.models import Meeting
 from odp.repositories.meetings import MeetingsRepository
+from odp.services import events
 from odp.services.calendar import export_meetings_to_ics, import_ics
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
@@ -36,4 +37,6 @@ def import_calendar(
     if body.persist:
         repo = MeetingsRepository(conn)
         imported = [repo.create(m) for m in imported]
+        if imported:
+            events.publish("meetings")
     return imported

@@ -63,7 +63,7 @@ def test_build_context_includes_projects_tasks_meetings_and_decisions(db_conn):
 
 def test_build_context_handles_empty_database(db_conn):
     context = build_context(db_conn, timezone="UTC")
-    assert "Aktif projeler" in context
+    assert "## Projeler" in context
     assert "(yok)" in context
 
 

@@ -1,6 +1,8 @@
 """Assembles a compact text snapshot of the user's current app data for
-the chat assistant — projects, open tasks, recent meetings (with their
-approved summary, if any), and recent decisions.
+the chat assistant — customers, projects, open tasks, recent meetings
+(with their approved summary, if any), pending proposals, and recent
+decisions. Every listed record carries its `[id: ...]` so a tool call
+can reference it precisely instead of the model guessing one.
 
 Deliberately plain SQL/repository reads, not semantic search: hybrid
 retrieval (plan §6) isn't built yet, so this is "recent + open" rather
@@ -15,7 +17,8 @@ import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from odp.models import ProjectStatus, TaskStatus
+from odp.models import TaskStatus
+from odp.repositories.customers import CustomersRepository
 from odp.repositories.meetings import MeetingsRepository
 from odp.repositories.projects import ProjectsRepository
 from odp.repositories.tasks import TasksRepository
@@ -23,6 +26,7 @@ from odp.repositories.tasks import TasksRepository
 MAX_TASKS = 30
 MAX_MEETINGS = 10
 MAX_DECISIONS = 15
+MAX_PENDING_PROPOSALS = 15
 
 
 def _due_label(due_utc: str | None) -> str:
@@ -58,17 +62,54 @@ def _recent_decisions(conn: sqlite3.Connection) -> list[tuple[str, str]]:
     return result
 
 
+def _pending_proposals_summary(conn: sqlite3.Connection) -> list[tuple[str, str, str, str]]:
+    """Returns (id, kind, one_line_description, meeting_title) for the
+    most recent still-pending proposals, across all meetings."""
+    rows = conn.execute(
+        "SELECT p.id, p.kind, p.payload_json, m.title AS meeting_title "
+        "FROM proposals p LEFT JOIN meetings m ON m.id = p.source_meeting_id "
+        "WHERE p.status = 'pending' ORDER BY p.created_at DESC LIMIT ?",
+        (MAX_PENDING_PROPOSALS,),
+    ).fetchall()
+    result = []
+    for row in rows:
+        payload = json.loads(row["payload_json"])
+        text = payload.get("title") or payload.get("summary") or ""
+        result.append(
+            (row["id"], row["kind"], str(text), row["meeting_title"] or "bilinmeyen toplantı")
+        )
+    return result
+
+
 def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
     now_local = datetime.now(ZoneInfo(timezone))
     lines: list[str] = [f"Bugünün tarihi: {now_local.strftime('%Y-%m-%d, %A')} ({timezone})", ""]
+    lines.append(
+        "(Aşağıdaki listelerdeki [id: ...] değerleri gerçek kayıt ID'leridir — bir araç "
+        "çağırırken SADECE buradaki ID'leri kullan, asla tahmin etme veya uydurma.)"
+    )
+    lines.append("")
 
-    projects = ProjectsRepository(conn).list(status=ProjectStatus.active)
-    lines.append(f"## Aktif projeler ({len(projects)})")
+    customers = CustomersRepository(conn).list()
+    lines.append(f"## Müşteriler ({len(customers)})")
+    if customers:
+        for c in customers:
+            lines.append(
+                f"- [id: {c.id}] {c.name}" + (f" — {c.description}" if c.description else "")
+            )
+    else:
+        lines.append("(yok)")
+    lines.append("")
+
+    projects = ProjectsRepository(conn).list()
+    customer_name_by_id = {c.id: c.name for c in customers}
+    lines.append(f"## Projeler ({len(projects)})")
     if projects:
         for p in projects:
-            lines.append(
-                f"- [id: {p.id}] {p.name}" + (f" — {p.description}" if p.description else "")
+            customer_label = (
+                f", müşteri: {customer_name_by_id.get(p.customer_id)}" if p.customer_id else ""
             )
+            lines.append(f"- [id: {p.id}] {p.name} [{p.status.value}]{customer_label}")
     else:
         lines.append("(yok)")
     lines.append("")
@@ -78,16 +119,14 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
     open_tasks.sort(key=lambda t: t.due_utc or "9999")
     shown_tasks = open_tasks[:MAX_TASKS]
     lines.append(f"## Açık görevler ({len(open_tasks)} toplam, {len(shown_tasks)} gösteriliyor)")
-    lines.append(
-        "(bir görev üzerinde işlem yapman gerekirse — durum değiştirme, alt görev ekleme — "
-        "aşağıdaki [id: ...] değerini kullan, tahmin etme)"
-    )
     if shown_tasks:
         for t in shown_tasks:
             owner = t.owner or "atanmamış"
             due = _due_label(t.due_utc)
+            tags = f", etiket: {', '.join(t.tags)}" if t.tags else ""
             lines.append(
-                f"- [id: {t.id}] [{t.status.value}] {t.title} — sorumlu: {owner}, son tarih: {due}"
+                f"- [id: {t.id}] [{t.status.value}/{t.priority.value}] {t.title} — "
+                f"sorumlu: {owner}, son tarih: {due}{tags}"
             )
     else:
         lines.append("(yok)")
@@ -100,7 +139,16 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
         for m in meetings_sorted:
             summary = _latest_approved_summary(conn, m.id)
             suffix = f": {summary}" if summary else " — özet yok"
-            lines.append(f"- {m.title} ({m.start_utc[:10]})" + suffix)
+            lines.append(f"- [id: {m.id}] {m.title} ({m.start_utc[:10]})" + suffix)
+    else:
+        lines.append("(yok)")
+    lines.append("")
+
+    pending = _pending_proposals_summary(conn)
+    lines.append(f"## Onay bekleyen öneriler ({len(pending)} gösteriliyor)")
+    if pending:
+        for pid, kind, text, meeting_title in pending:
+            lines.append(f"- [id: {pid}] [{kind}] {text} ({meeting_title})")
     else:
         lines.append("(yok)")
     lines.append("")

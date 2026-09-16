@@ -15,6 +15,7 @@ from odp.api.schemas import (
 from odp.models import ChecklistItem, Task, TaskDependency
 from odp.models.time import utc_now_iso
 from odp.repositories.tasks import TasksRepository
+from odp.services import events
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -35,7 +36,9 @@ def create_task(body: TaskCreate, conn: sqlite3.Connection = Depends(get_db)) ->
         created_at=now,
         updated_at=now,
     )
-    return TasksRepository(conn).create(task)
+    created = TasksRepository(conn).create(task)
+    events.publish("tasks")
+    return created
 
 
 @router.get("", response_model=list[Task])
@@ -60,24 +63,29 @@ def update_task(task_id: str, body: TaskUpdate, conn: sqlite3.Connection = Depen
     updated = TasksRepository(conn).update(task_id, **fields)
     if updated is None:
         raise HTTPException(status_code=404, detail="task not found")
+    events.publish("tasks")
     return updated
 
 
 @router.delete("/{task_id}", status_code=204)
 def delete_task(task_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     TasksRepository(conn).delete(task_id)
+    events.publish("tasks")
 
 
 @router.post("/{task_id}/dependencies", response_model=TaskDependency, status_code=201)
 def add_dependency(
     task_id: str, body: TaskDependencyCreate, conn: sqlite3.Connection = Depends(get_db)
 ) -> TaskDependency:
-    return TasksRepository(conn).add_dependency(task_id, body.depends_on_task_id, body.dep_type)
+    dep = TasksRepository(conn).add_dependency(task_id, body.depends_on_task_id, body.dep_type)
+    events.publish("tasks")
+    return dep
 
 
 @router.delete("/dependencies/{dependency_id}", status_code=204)
 def remove_dependency(dependency_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     TasksRepository(conn).remove_dependency(dependency_id)
+    events.publish("tasks")
 
 
 # --- checklist ---
@@ -92,7 +100,9 @@ def list_checklist(task_id: str, conn: sqlite3.Connection = Depends(get_db)) -> 
 def add_checklist_item(
     task_id: str, body: ChecklistItemCreate, conn: sqlite3.Connection = Depends(get_db)
 ) -> ChecklistItem:
-    return TasksRepository(conn).add_checklist_item(task_id, body.title)
+    item = TasksRepository(conn).add_checklist_item(task_id, body.title)
+    events.publish("tasks")
+    return item
 
 
 @router.patch("/checklist/{item_id}", status_code=204)
@@ -100,8 +110,10 @@ def update_checklist_item(
     item_id: str, body: ChecklistItemUpdate, conn: sqlite3.Connection = Depends(get_db)
 ) -> None:
     TasksRepository(conn).set_checklist_item_done(item_id, body.done)
+    events.publish("tasks")
 
 
 @router.delete("/checklist/{item_id}", status_code=204)
 def delete_checklist_item(item_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     TasksRepository(conn).delete_checklist_item(item_id)
+    events.publish("tasks")

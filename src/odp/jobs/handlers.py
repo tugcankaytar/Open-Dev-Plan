@@ -13,6 +13,7 @@ from odp.config import Settings
 from odp.jobs.worker import ProgressCallback, Worker
 from odp.models import Job, JobType
 from odp.repositories.app_settings import AppSettingsRepository
+from odp.services import events
 from odp.services.extraction.pipeline import extract_meeting
 from odp.services.llm.provider import LLMProvider
 
@@ -33,6 +34,7 @@ def register_handlers(
             prose_model=model,
             embedding_model=settings.embedding_model,
         )
+        events.publish("proposals")
 
     worker.register(JobType.extraction, handle_extraction, needs_gpu=True)
 

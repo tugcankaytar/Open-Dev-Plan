@@ -22,6 +22,7 @@ from odp.jobs.queue import JobQueue
 from odp.models import Job, JobType, Proposal
 from odp.models.time import to_utc_iso
 from odp.repositories.app_settings import AppSettingsRepository
+from odp.services import events
 from odp.services.llm.provider import LLMProvider
 from odp.services.proposals import resolve_proposal
 from odp.services.proposals.resolve import ProposalResolutionError
@@ -43,7 +44,7 @@ async def resolve_proposal_endpoint(
     settings: Settings = Depends(get_settings_dep),
 ) -> Proposal:
     try:
-        return await resolve_proposal(
+        resolved = await resolve_proposal(
             conn,
             proposal_id=proposal_id,
             action=body.action,
@@ -52,6 +53,8 @@ async def resolve_proposal_endpoint(
         )
     except ProposalResolutionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    events.publish("proposals")
+    return resolved
 
 
 @router.post("/schedule/suggest", response_model=ScheduleSuggestResponse)

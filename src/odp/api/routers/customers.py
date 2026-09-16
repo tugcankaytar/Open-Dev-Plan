@@ -8,13 +8,16 @@ from odp.api.deps import get_db
 from odp.api.schemas import CustomerCreate, CustomerUpdate
 from odp.models import Customer
 from odp.repositories.customers import CustomersRepository
+from odp.services import events
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 
 @router.post("", response_model=Customer, status_code=201)
 def create_customer(body: CustomerCreate, conn: sqlite3.Connection = Depends(get_db)) -> Customer:
-    return CustomersRepository(conn).create(body.name, body.description)
+    customer = CustomersRepository(conn).create(body.name, body.description)
+    events.publish("customers")
+    return customer
 
 
 @router.get("", response_model=list[Customer])
@@ -38,9 +41,11 @@ def update_customer(
     updated = CustomersRepository(conn).update(customer_id, **fields)
     if updated is None:
         raise HTTPException(status_code=404, detail="customer not found")
+    events.publish("customers")
     return updated
 
 
 @router.delete("/{customer_id}", status_code=204)
 def delete_customer(customer_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     CustomersRepository(conn).delete(customer_id)
+    events.publish("customers")

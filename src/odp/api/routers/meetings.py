@@ -10,6 +10,7 @@ from odp.models import Meeting, Proposal, TranscriptSegment
 from odp.models.time import utc_now_iso
 from odp.repositories.meetings import MeetingsRepository
 from odp.repositories.proposals import ProposalsRepository
+from odp.services import events
 from odp.services.transcription.text_import import build_segments
 
 router = APIRouter(prefix="/api/meetings", tags=["meetings"])
@@ -30,7 +31,9 @@ def create_meeting(body: MeetingCreate, conn: sqlite3.Connection = Depends(get_d
         created_at=now,
         updated_at=now,
     )
-    return MeetingsRepository(conn).create(meeting)
+    created = MeetingsRepository(conn).create(meeting)
+    events.publish("meetings")
+    return created
 
 
 @router.get("", response_model=list[Meeting])
@@ -49,6 +52,7 @@ def get_meeting(meeting_id: str, conn: sqlite3.Connection = Depends(get_db)) -> 
 @router.delete("/{meeting_id}", status_code=204)
 def delete_meeting(meeting_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     MeetingsRepository(conn).delete(meeting_id)
+    events.publish("meetings")
 
 
 @router.get("/{meeting_id}/transcript", response_model=list[TranscriptSegment])
@@ -72,6 +76,7 @@ def import_transcript_text(
     segments = build_segments(meeting_id, body.text, start_seq=len(existing))
     if segments:
         repo.add_segments(segments)
+        events.publish("meetings")
     return segments
 
 

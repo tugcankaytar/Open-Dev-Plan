@@ -90,7 +90,7 @@ async def stream_chat_reply(
         messages.append(_tool_calls_to_message(collected_tool_calls))
         for tc in collected_tool_calls:
             yield ChatEvent(tool_call={"name": tc.name, "arguments": tc.arguments})
-            result = execute_tool(conn, tc.name, tc.arguments, timezone=timezone)
+            result = await execute_tool(conn, tc.name, tc.arguments, timezone=timezone)
             yield ChatEvent(tool_result={"name": tc.name, **result})
             messages.append(
                 {

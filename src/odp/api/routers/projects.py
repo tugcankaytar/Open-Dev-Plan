@@ -8,13 +8,16 @@ from odp.api.deps import get_db
 from odp.api.schemas import ProjectCreate, ProjectUpdate
 from odp.models import Project
 from odp.repositories.projects import ProjectsRepository
+from odp.services import events
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.post("", response_model=Project, status_code=201)
 def create_project(body: ProjectCreate, conn: sqlite3.Connection = Depends(get_db)) -> Project:
-    return ProjectsRepository(conn).create(body.name, body.description, body.customer_id)
+    project = ProjectsRepository(conn).create(body.name, body.description, body.customer_id)
+    events.publish("projects")
+    return project
 
 
 @router.get("", response_model=list[Project])
@@ -43,9 +46,11 @@ def update_project(
     updated = ProjectsRepository(conn).update(project_id, **fields)
     if updated is None:
         raise HTTPException(status_code=404, detail="project not found")
+    events.publish("projects")
     return updated
 
 
 @router.delete("/{project_id}", status_code=204)
 def delete_project(project_id: str, conn: sqlite3.Connection = Depends(get_db)) -> None:
     ProjectsRepository(conn).delete(project_id)
+    events.publish("projects")
