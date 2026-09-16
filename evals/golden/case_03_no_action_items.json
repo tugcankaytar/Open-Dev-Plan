@@ -1,0 +1,15 @@
+{
+  "id": "case_03_no_action_items",
+  "description": "Pure small talk — the model must NOT invent an action item.",
+  "transcript": [
+    "Ayşe: Günaydın, nasılsınız?",
+    "Mehmet: İyiyim, hafta sonu güzel geçti, teşekkürler.",
+    "Ayşe: Güzel, bugün hava da çok iyi."
+  ],
+  "expected_action_keywords": [],
+  "expected_action_count_min": 0,
+  "expected_action_count_max": 0,
+  "expected_owner_contains": null,
+  "expected_decision_count_min": 0,
+  "expected_decision_count_max": 0
+}

@@ -1,0 +1,16 @@
+{
+  "id": "case_05_multi_topic",
+  "description": "Two action items and one decision in a single longer excerpt.",
+  "transcript": [
+    "Ayşe: Bugün üç konumuz var: demo, bütçe ve tasarım dosyaları.",
+    "Mehmet: Demo sunumunu Cuma gününe kadar ben hazırlarım.",
+    "Zeynep: Bütçe konusunda 50 bin liralık ek bütçeyi onaylıyoruz.",
+    "Mehmet: Tasarım dosyalarını da haftaya kadar Zeynep'e gönderirim."
+  ],
+  "expected_action_keywords": [["demo", "sunum"], ["tasarım", "dosya"]],
+  "expected_action_count_min": 2,
+  "expected_action_count_max": 3,
+  "expected_owner_contains": null,
+  "expected_decision_count_min": 1,
+  "expected_decision_count_max": 1
+}

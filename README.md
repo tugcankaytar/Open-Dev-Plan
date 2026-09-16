@@ -33,7 +33,7 @@ Meeting audio and business plans are some of the most sensitive data a small tea
 | VRAM | Suggested models |
 |------|-------------------|
 | 8 GB | `qwen3:8b` (or smaller), `faster-whisper` medium |
-| 16 GB | `gpt-oss:20b` for extraction + `qwen3:14b` for Turkish prose, `faster-whisper` large-v3-turbo |
+| 16 GB | `gpt-oss:20b` for both extraction and Turkish prose (see `evals/README.md` for why one model suffices), `faster-whisper` large-v3-turbo |
 | 24 GB+ | Larger variants of the above, or `gpt-oss:120b` in low-VRAM offload mode |
 
 CPU-only works but transcription and generation will be noticeably slower.
@@ -42,9 +42,8 @@ CPU-only works but transcription and generation will be noticeably slower.
 
 ```bash
 # 1. Install Ollama and pull the models you plan to use
-ollama pull gpt-oss:20b
-ollama pull qwen3:14b
-ollama pull bge-m3
+ollama pull gpt-oss:20b   # extraction + Turkish prose (see evals/README.md)
+ollama pull bge-m3        # embeddings for search
 
 # 2. Install and run Open-Dev-Plan (uv manages the Python environment)
 uv sync

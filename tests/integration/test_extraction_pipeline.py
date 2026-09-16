@@ -52,7 +52,7 @@ async def test_extract_meeting_creates_proposals_never_tasks(db_conn):
                 }
             ]
         },
-        system_contains="aksiyon maddesi",
+        system_contains="aksiyon maddesi çıkaran",
     )
     provider.add_json_response(
         "Cuma'ya kadar bitirelim",
@@ -65,7 +65,7 @@ async def test_extract_meeting_creates_proposals_never_tasks(db_conn):
                 }
             ]
         },
-        system_contains="KARARLARI",
+        system_contains="alınan KARARLARI",
     )
     provider.add_text_response(
         "Cuma'ya kadar bitirelim",

@@ -29,7 +29,7 @@ async def test_extract_action_items_returns_validated_schema():
                 }
             ]
         },
-        system_contains="aksiyon maddesi",
+        system_contains="aksiyon maddesi çıkaran",
     )
 
     result = await extract_action_items(provider, transcript_text=TRANSCRIPT, model="gpt-oss:20b")
@@ -52,7 +52,7 @@ async def test_extract_decisions_returns_validated_schema():
                 }
             ]
         },
-        system_contains="KARARLARI",
+        system_contains="alınan KARARLARI",
     )
 
     result = await extract_decisions(provider, transcript_text=TRANSCRIPT, model="gpt-oss:20b")
@@ -66,9 +66,11 @@ async def test_extract_action_items_and_decisions_do_not_cross_contaminate():
     its own scripted response based on the (different) system prompt."""
     provider = FakeLLMProvider()
     provider.add_json_response(
-        "Demo hazırlığını", {"action_items": []}, system_contains="aksiyon maddesi"
+        "Demo hazırlığını", {"action_items": []}, system_contains="aksiyon maddesi çıkaran"
     )
-    provider.add_json_response("Demo hazırlığını", {"decisions": []}, system_contains="KARARLARI")
+    provider.add_json_response(
+        "Demo hazırlığını", {"decisions": []}, system_contains="alınan KARARLARI"
+    )
 
     actions = await extract_action_items(provider, transcript_text=TRANSCRIPT, model="gpt-oss:20b")
     decisions = await extract_decisions(provider, transcript_text=TRANSCRIPT, model="gpt-oss:20b")

@@ -1,0 +1,14 @@
+{
+  "id": "case_02_decision",
+  "description": "A clear budget decision, no action item.",
+  "transcript": [
+    "Zeynep: 50 bin liralık ek bütçeyi onaylıyor muyuz?",
+    "Ayşe: Evet, 50 bin liralık ek bütçeyi onaylıyoruz."
+  ],
+  "expected_action_keywords": [],
+  "expected_action_count_min": 0,
+  "expected_action_count_max": 1,
+  "expected_owner_contains": null,
+  "expected_decision_count_min": 1,
+  "expected_decision_count_max": 1
+}

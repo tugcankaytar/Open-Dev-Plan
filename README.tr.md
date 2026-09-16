@@ -33,7 +33,7 @@ Toplantı sesleri ve iş planları küçük bir ekibin ürettiği en hassas veri
 | VRAM | Önerilen modeller |
 |------|---------------------|
 | 8 GB | `qwen3:8b` (veya daha küçük), `faster-whisper` medium |
-| 16 GB | Çıkarım için `gpt-oss:20b` + Türkçe düzyazı için `qwen3:14b`, `faster-whisper` large-v3-turbo |
+| 16 GB | Hem çıkarım hem Türkçe düzyazı için `gpt-oss:20b` (tek model neden yeterli: `evals/README.md`), `faster-whisper` large-v3-turbo |
 | 24 GB+ | Yukarıdakilerin büyük versiyonları, veya düşük VRAM modunda `gpt-oss:120b` |
 
 Sadece CPU ile de çalışır ama deşifre ve üretim belirgin şekilde yavaşlar.
@@ -42,9 +42,8 @@ Sadece CPU ile de çalışır ama deşifre ve üretim belirgin şekilde yavaşla
 
 ```bash
 # 1. Ollama'yı kurun ve kullanacağınız modelleri çekin
-ollama pull gpt-oss:20b
-ollama pull qwen3:14b
-ollama pull bge-m3
+ollama pull gpt-oss:20b   # çıkarım + Türkçe düzyazı (bkz. evals/README.md)
+ollama pull bge-m3        # arama için embedding
 
 # 2. Open-Dev-Plan'ı kurun ve çalıştırın (uv, Python ortamını yönetir)
 uv sync

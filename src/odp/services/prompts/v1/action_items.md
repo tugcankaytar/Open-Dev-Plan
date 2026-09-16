@@ -19,3 +19,7 @@ Kurallar:
 - `confidence` alanına 0 ile 1 arasında, ne kadar emin olduğunu yaz.
 - Transkriptte hiç aksiyon maddesi yoksa boş bir liste döndür — zorla
   bir şey uydurma.
+- `title` alanını HER ZAMAN Türkçe yaz. Transkript Türkçe ise çıktıyı
+  ASLA İngilizceye çevirme — bu kural en az diğerleri kadar önemlidir.
+- Aynı aksiyon maddesini birden fazla kez listeleme; transkriptte iki kez
+  bahsedilse bile TEK bir madde olarak çıkar.

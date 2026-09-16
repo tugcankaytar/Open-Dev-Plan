@@ -48,9 +48,20 @@ class Settings(BaseSettings):
     # Structured extraction (action items, decisions, intent parsing): favors
     # speed + strict JSON-schema adherence over prose fluency.
     extraction_model: str = "gpt-oss:20b"
-    # Turkish prose generation (summaries, daily briefs): favors fluent,
-    # idiomatic Turkish over raw reasoning throughput.
-    prose_model: str = "qwen3:14b"
+    # Turkish prose generation (summaries, daily briefs). Architecturally a
+    # separate role from extraction_model (plan §2's role split) so a
+    # weaker or non-Turkish-tuned extraction model can still be paired with
+    # a stronger Turkish writer — but defaults to the SAME model as
+    # extraction_model: evals/run_eval.py (6/6 golden cases, both content
+    # and Turkish-language fidelity) showed gpt-oss:20b matches qwen3:14b
+    # on both structured extraction and free-form Turkish prose once the
+    # prompt explicitly requires Turkish output, while running ~2.5x
+    # faster and needing only one model loaded instead of two. Override to
+    # "qwen3:14b" (already pulled? `ollama pull qwen3:14b`) if you prefer
+    # a dedicated writer model, or after re-running the eval on your own
+    # data suggests otherwise — this default isn't load-bearing, it's a
+    # measured starting point.
+    prose_model: str = "gpt-oss:20b"
     embedding_model: str = "bge-m3"
     llm_request_timeout_s: float = 120.0
 

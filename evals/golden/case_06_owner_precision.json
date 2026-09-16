@@ -1,0 +1,15 @@
+{
+  "id": "case_06_owner_precision",
+  "description": "Two people discuss a task but only one explicitly commits to it — the model must not guess the wrong owner.",
+  "transcript": [
+    "Ayşe: Sunucu bakımını kim yapabilir?",
+    "Mehmet: Zeynep senden daha uygun olabilir bu konuda.",
+    "Zeynep: Tamam, sunucu bakımını ben üstleneyim."
+  ],
+  "expected_action_keywords": [["sunucu", "bakım"]],
+  "expected_action_count_min": 1,
+  "expected_action_count_max": 1,
+  "expected_owner_contains": "zeynep",
+  "expected_decision_count_min": 0,
+  "expected_decision_count_max": 0
+}
