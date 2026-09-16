@@ -138,6 +138,12 @@ class TasksRepository:
     def remove_dependency(self, dependency_id: str) -> None:
         self._conn.execute("DELETE FROM task_dependencies WHERE id = ?", (dependency_id,))
 
+    def list_dependencies_for_task(self, task_id: str) -> list[TaskDependency]:
+        rows = self._conn.execute(
+            "SELECT * FROM task_dependencies WHERE task_id = ?", (task_id,)
+        ).fetchall()
+        return [self._row_to_dependency(row) for row in rows]
+
     def list_dependencies_for_project(self, project_id: str) -> list[TaskDependency]:
         rows = self._conn.execute(
             """

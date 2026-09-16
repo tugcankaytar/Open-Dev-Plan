@@ -5,9 +5,9 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
 from odp.api.deps import get_db
-from odp.api.schemas import MeetingCreate, TranscriptImportRequest
+from odp.api.schemas import MeetingCreate, MeetingUpdate, TranscriptImportRequest
 from odp.models import Meeting, Proposal, TranscriptSegment
-from odp.models.time import utc_now_iso
+from odp.models.time import normalize_utc_iso, utc_now_iso
 from odp.repositories.meetings import MeetingsRepository
 from odp.repositories.proposals import ProposalsRepository
 from odp.services import events
@@ -18,13 +18,23 @@ router = APIRouter(prefix="/api/meetings", tags=["meetings"])
 
 @router.post("", response_model=Meeting, status_code=201)
 def create_meeting(body: MeetingCreate, conn: sqlite3.Connection = Depends(get_db)) -> Meeting:
+    # Client-supplied timestamps (the browser's `Date.toISOString()`
+    # always carries milliseconds) are reserialized to our canonical
+    # no-fractional-seconds form before they ever reach storage — mixed
+    # formats parse fine individually but sort inconsistently as raw
+    # strings, which both SQL range queries and the frontend rely on.
+    start_utc = normalize_utc_iso(body.start_utc)
+    end_utc = normalize_utc_iso(body.end_utc)
+    if end_utc <= start_utc:
+        raise HTTPException(status_code=422, detail="end_utc must be after start_utc")
     now = utc_now_iso()
     meeting = Meeting(
         title=body.title,
-        start_utc=body.start_utc,
-        end_utc=body.end_utc,
+        start_utc=start_utc,
+        end_utc=end_utc,
         timezone=body.timezone,
         project_id=body.project_id,
+        customer_id=body.customer_id,
         rrule=body.rrule,
         location_link=body.location_link,
         participants=body.participants,
@@ -47,6 +57,31 @@ def get_meeting(meeting_id: str, conn: sqlite3.Connection = Depends(get_db)) -> 
     if meeting is None:
         raise HTTPException(status_code=404, detail="meeting not found")
     return meeting
+
+
+@router.patch("/{meeting_id}", response_model=Meeting)
+def update_meeting(
+    meeting_id: str, body: MeetingUpdate, conn: sqlite3.Connection = Depends(get_db)
+) -> Meeting:
+    repo = MeetingsRepository(conn)
+    existing = repo.get(meeting_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="meeting not found")
+
+    fields = body.model_dump(exclude_unset=True)
+    if "start_utc" in fields and fields["start_utc"] is not None:
+        fields["start_utc"] = normalize_utc_iso(fields["start_utc"])
+    if "end_utc" in fields and fields["end_utc"] is not None:
+        fields["end_utc"] = normalize_utc_iso(fields["end_utc"])
+    new_start = fields.get("start_utc", existing.start_utc)
+    new_end = fields.get("end_utc", existing.end_utc)
+    if new_end <= new_start:
+        raise HTTPException(status_code=422, detail="end_utc must be after start_utc")
+
+    updated = repo.update(meeting_id, **fields)
+    assert updated is not None
+    events.publish("meetings")
+    return updated
 
 
 @router.delete("/{meeting_id}", status_code=204)

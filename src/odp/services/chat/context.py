@@ -106,9 +106,8 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
     lines.append(f"## Projeler ({len(projects)})")
     if projects:
         for p in projects:
-            customer_label = (
-                f", müşteri: {customer_name_by_id.get(p.customer_id)}" if p.customer_id else ""
-            )
+            names = [customer_name_by_id.get(cid, cid) for cid in p.customer_ids]
+            customer_label = f", müşteriler: {', '.join(names)}" if names else ""
             lines.append(f"- [id: {p.id}] {p.name} [{p.status.value}]{customer_label}")
     else:
         lines.append("(yok)")
@@ -139,7 +138,10 @@ def build_context(conn: sqlite3.Connection, *, timezone: str = "UTC") -> str:
         for m in meetings_sorted:
             summary = _latest_approved_summary(conn, m.id)
             suffix = f": {summary}" if summary else " — özet yok"
-            lines.append(f"- [id: {m.id}] {m.title} ({m.start_utc[:10]})" + suffix)
+            customer_label = (
+                f", müşteri: {customer_name_by_id.get(m.customer_id)}" if m.customer_id else ""
+            )
+            lines.append(f"- [id: {m.id}] {m.title} ({m.start_utc[:10]}){customer_label}" + suffix)
     else:
         lines.append("(yok)")
     lines.append("")

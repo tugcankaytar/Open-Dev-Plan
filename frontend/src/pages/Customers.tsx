@@ -30,8 +30,8 @@ export default function Customers() {
 
   const projectCountByCustomer = new Map<string, number>();
   for (const p of projects ?? []) {
-    if (p.customer_id) {
-      projectCountByCustomer.set(p.customer_id, (projectCountByCustomer.get(p.customer_id) ?? 0) + 1);
+    for (const customerId of p.customer_ids) {
+      projectCountByCustomer.set(customerId, (projectCountByCustomer.get(customerId) ?? 0) + 1);
     }
   }
 

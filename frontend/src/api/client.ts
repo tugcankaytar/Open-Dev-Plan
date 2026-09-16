@@ -77,14 +77,14 @@ export const api = {
   // --- projects ---
   listProjects: (customerId?: string) =>
     request<Project[]>(`/projects${customerId ? `?customer_id=${customerId}` : ""}`),
-  createProject: (name: string, description = "", customerId?: string | null) =>
+  createProject: (name: string, description = "", customerIds: string[] = []) =>
     request<Project>("/projects", {
       method: "POST",
-      body: JSON.stringify({ name, description, customer_id: customerId ?? null }),
+      body: JSON.stringify({ name, description, customer_ids: customerIds }),
     }),
   updateProject: (
     id: string,
-    patch: { status?: ProjectStatus; name?: string; description?: string; customer_id?: string | null }
+    patch: { status?: ProjectStatus; name?: string; description?: string; customer_ids?: string[] }
   ) => request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
 
@@ -120,8 +120,11 @@ export const api = {
     start_utc: string;
     end_utc: string;
     timezone: string;
+    customer_id?: string | null;
     location_link?: string;
   }) => request<Meeting>("/meetings", { method: "POST", body: JSON.stringify(body) }),
+  updateMeeting: (id: string, body: Partial<Pick<Meeting, "customer_id" | "project_id" | "title" | "status">>) =>
+    request<Meeting>(`/meetings/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteMeeting: (id: string) => request<void>(`/meetings/${id}`, { method: "DELETE" }),
   getTranscript: (id: string) => request<TranscriptSegment[]>(`/meetings/${id}/transcript`),
   importTranscriptText: (id: string, text: string) =>

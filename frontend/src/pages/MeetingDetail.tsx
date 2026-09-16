@@ -30,6 +30,8 @@ export default function MeetingDetail() {
     queryFn: () => api.getMeetingProposals(meetingId),
     enabled: !!meetingId,
   });
+  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: api.listCustomers });
+  const customerName = customers?.find((c) => c.id === meeting?.customer_id)?.name;
 
   const [pasteText, setPasteText] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export default function MeetingDetail() {
                 {new Date(meeting.start_utc).toLocaleString("tr-TR")} · {meeting.timezone}
               </span>
               <span className={`badge badge-${meeting.status}`}>{meeting.status}</span>
+              {customerName && <span className="pill mono">{customerName}</span>}
             </div>
           )}
         </div>

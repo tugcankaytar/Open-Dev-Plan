@@ -28,7 +28,9 @@ export default function TaskFormModal({
   const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: () => api.listProjects() });
 
   const [customerId, setCustomerId] = useState("");
-  const projects = customerId ? allProjects?.filter((p) => p.customer_id === customerId) : allProjects;
+  const projects = customerId
+    ? allProjects?.filter((p) => p.customer_ids.includes(customerId))
+    : allProjects;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

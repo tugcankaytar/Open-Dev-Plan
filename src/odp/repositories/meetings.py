@@ -20,13 +20,14 @@ class MeetingsRepository:
         self._conn.execute(
             """
             INSERT INTO meetings
-                (id, project_id, title, start_utc, end_utc, timezone, rrule,
+                (id, project_id, customer_id, title, start_utc, end_utc, timezone, rrule,
                  location_link, participants_json, audio_path, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 meeting.id,
                 meeting.project_id,
+                meeting.customer_id,
                 meeting.title,
                 meeting.start_utc,
                 meeting.end_utc,
@@ -64,6 +65,35 @@ class MeetingsRepository:
             "UPDATE meetings SET status = ?, updated_at = ? WHERE id = ?",
             (status.value, utc_now_iso(), meeting_id),
         )
+
+    def update(self, meeting_id: str, **fields: object) -> Meeting | None:
+        existing = self.get(meeting_id)
+        if existing is None:
+            return None
+        data = existing.model_dump()
+        data.update(fields)
+        merged = Meeting.model_validate(data)
+        merged.updated_at = utc_now_iso()
+        self._conn.execute(
+            "UPDATE meetings SET project_id = ?, customer_id = ?, title = ?, start_utc = ?, "
+            "end_utc = ?, timezone = ?, rrule = ?, location_link = ?, participants_json = ?, "
+            "status = ?, updated_at = ? WHERE id = ?",
+            (
+                merged.project_id,
+                merged.customer_id,
+                merged.title,
+                merged.start_utc,
+                merged.end_utc,
+                merged.timezone,
+                merged.rrule,
+                merged.location_link,
+                json.dumps(merged.participants),
+                merged.status.value,
+                merged.updated_at,
+                meeting_id,
+            ),
+        )
+        return self.get(meeting_id)
 
     def set_audio_path(self, meeting_id: str, audio_path: str) -> None:
         self._conn.execute(
@@ -119,6 +149,7 @@ class MeetingsRepository:
         return Meeting(
             id=row["id"],
             project_id=row["project_id"],
+            customer_id=row["customer_id"],
             title=row["title"],
             start_utc=row["start_utc"],
             end_utc=row["end_utc"],

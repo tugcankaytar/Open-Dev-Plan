@@ -26,7 +26,7 @@ export interface Customer {
 
 export interface Project {
   id: string;
-  customer_id: string | null;
+  customer_ids: string[];
   name: string;
   description: string;
   status: ProjectStatus;
@@ -37,6 +37,7 @@ export interface Project {
 export interface Meeting {
   id: string;
   project_id: string | null;
+  customer_id: string | null;
   title: string;
   start_utc: string;
   end_utc: string;

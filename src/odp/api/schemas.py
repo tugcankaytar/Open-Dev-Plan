@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from odp.models import DependencyType, ProjectStatus, TaskPriority, TaskStatus
+from odp.models import DependencyType, MeetingStatus, ProjectStatus, TaskPriority, TaskStatus
 
 
 class CustomerCreate(BaseModel):
@@ -28,14 +28,14 @@ class CustomerUpdate(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     description: str = ""
-    customer_id: str | None = None
+    customer_ids: list[str] = []
 
 
 class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     status: ProjectStatus | None = None
-    customer_id: str | None = None
+    customer_ids: list[str] | None = None
 
 
 class TaskCreate(BaseModel):
@@ -81,9 +81,23 @@ class MeetingCreate(BaseModel):
     end_utc: str
     timezone: str
     project_id: str | None = None
+    customer_id: str | None = None
     rrule: str | None = None
     location_link: str | None = None
     participants: list[str] = []
+
+
+class MeetingUpdate(BaseModel):
+    title: str | None = None
+    start_utc: str | None = None
+    end_utc: str | None = None
+    timezone: str | None = None
+    project_id: str | None = None
+    customer_id: str | None = None
+    rrule: str | None = None
+    location_link: str | None = None
+    participants: list[str] | None = None
+    status: MeetingStatus | None = None
 
 
 class ProposalResolveRequest(BaseModel):

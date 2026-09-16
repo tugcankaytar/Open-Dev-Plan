@@ -81,15 +81,75 @@ async def test_meeting_crud_and_ics_export(tmp_settings):
         )
         assert created.status_code == 201
         meeting = created.json()
+        assert meeting["customer_id"] is None
 
         transcript = await client.get(f"/api/meetings/{meeting['id']}/transcript")
         assert transcript.status_code == 200
         assert transcript.json() == []
 
+        customer = await client.post("/api/customers", json={"name": "Gaziantep Sanayi Odası"})
+        assert customer.status_code == 201
+        customer_id = customer.json()["id"]
+
+        linked = await client.patch(
+            f"/api/meetings/{meeting['id']}", json={"customer_id": customer_id}
+        )
+        assert linked.status_code == 200
+        assert linked.json()["customer_id"] == customer_id
+
+        unlinked = await client.patch(f"/api/meetings/{meeting['id']}", json={"customer_id": None})
+        assert unlinked.status_code == 200
+        assert unlinked.json()["customer_id"] is None
+
         export = await client.get("/api/calendar/export.ics")
         assert export.status_code == 200
         assert export.headers["content-type"].startswith("text/calendar")
         assert "Haftalık Sync".encode() in export.content
+
+
+async def test_meeting_rejects_end_before_start(tmp_settings):
+    app = create_app(tmp_settings)
+    transport = ASGITransport(app=app)
+    async with (
+        AsyncClient(transport=transport, base_url="http://test") as client,
+        app.router.lifespan_context(app),
+    ):
+        rejected = await client.post(
+            "/api/meetings",
+            json={
+                "title": "Ters toplantı",
+                "start_utc": "2026-09-22T19:00:00Z",
+                "end_utc": "2026-09-22T09:00:00Z",
+                "timezone": "Europe/Istanbul",
+            },
+        )
+        assert rejected.status_code == 422
+
+
+async def test_meeting_create_normalizes_browser_millisecond_timestamps(tmp_settings):
+    # The browser's Date.toISOString() always includes milliseconds; the
+    # stored value must be reserialized to our canonical form so the
+    # deterministic scheduler (which parses stored timestamps strictly)
+    # never chokes on a meeting created through the web UI.
+    app = create_app(tmp_settings)
+    transport = ASGITransport(app=app)
+    async with (
+        AsyncClient(transport=transport, base_url="http://test") as client,
+        app.router.lifespan_context(app),
+    ):
+        created = await client.post(
+            "/api/meetings",
+            json={
+                "title": "Millisaniyeli",
+                "start_utc": "2026-09-22T07:00:00.000Z",
+                "end_utc": "2026-09-22T07:30:00.000Z",
+                "timezone": "Europe/Istanbul",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["start_utc"] == "2026-09-22T07:00:00Z"
+        assert body["end_utc"] == "2026-09-22T07:30:00Z"
 
 
 async def test_calendar_import_preview_does_not_persist(tmp_settings):

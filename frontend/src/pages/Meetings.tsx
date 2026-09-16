@@ -14,12 +14,14 @@ function toLocalInputValue(date: Date): string {
 export default function Meetings() {
   const queryClient = useQueryClient();
   const { data: meetings, isLoading } = useQuery({ queryKey: ["meetings"], queryFn: api.listMeetings });
+  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: api.listCustomers });
 
   const now = new Date();
   const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
   const [title, setTitle] = useState("");
   const [start, setStart] = useState(toLocalInputValue(now));
   const [end, setEnd] = useState(toLocalInputValue(inOneHour));
+  const [customerId, setCustomerId] = useState("");
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const createMutation = useMutation({
@@ -29,11 +31,19 @@ export default function Meetings() {
         start_utc: new Date(start).toISOString(),
         end_utc: new Date(end).toISOString(),
         timezone,
+        customer_id: customerId || null,
       }),
     onSuccess: () => {
       setTitle("");
+      setCustomerId("");
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
     },
+  });
+
+  const customerMutation = useMutation({
+    mutationFn: ({ id, customer_id }: { id: string; customer_id: string | null }) =>
+      api.updateMeeting(id, { customer_id }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meetings"] }),
   });
 
   const deleteMutation = useMutation({
@@ -68,6 +78,14 @@ export default function Meetings() {
           Bitiş
           <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
         </label>
+        <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+          <option value="">Müşteri yok</option>
+          {customers?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
         <button type="submit" disabled={createMutation.isPending}>
           <IconPlus size={13} />
           Toplantı ekle
@@ -82,6 +100,7 @@ export default function Meetings() {
           <tr>
             <th>Başlık</th>
             <th>Tarih</th>
+            <th>Müşteri</th>
             <th>Durum</th>
             <th></th>
           </tr>
@@ -93,6 +112,21 @@ export default function Meetings() {
                 <Link to={`/meetings/${m.id}`}>{m.title}</Link>
               </td>
               <td>{new Date(m.start_utc).toLocaleString("tr-TR")}</td>
+              <td>
+                <select
+                  value={m.customer_id ?? ""}
+                  onChange={(e) =>
+                    customerMutation.mutate({ id: m.id, customer_id: e.target.value || null })
+                  }
+                >
+                  <option value="">Müşteri yok</option>
+                  {customers?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
               <td>
                 <span className={`badge badge-${m.status}`}>{m.status}</span>
               </td>

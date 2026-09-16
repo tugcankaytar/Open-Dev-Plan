@@ -23,5 +23,22 @@ def to_utc_iso(dt: datetime) -> str:
 
 
 def from_utc_iso(s: str) -> datetime:
-    """Parse one of our stored UTC strings back into an aware datetime."""
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    """Parse a stored/incoming UTC string back into an aware datetime.
+
+    Accepts our own canonical no-fractional-seconds form as well as
+    fractional-second variants (e.g. the browser's `Date.toISOString()`,
+    which always emits milliseconds) — both are valid ISO-8601 for the
+    same instant, and every write path should not have to hand-roll its
+    own formatting to match ours exactly.
+    """
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def normalize_utc_iso(s: str) -> str:
+    """Reserialize any valid UTC ISO-8601 string to our canonical storage
+    form — so a client-supplied timestamp (which may carry milliseconds)
+    never ends up stored in a different shape than the ones this app
+    writes itself. Mixed formats would still parse, but would sort
+    incorrectly against each other as raw strings (SQL range queries and
+    the frontend's plain string comparisons both rely on that ordering)."""
+    return to_utc_iso(from_utc_iso(s))

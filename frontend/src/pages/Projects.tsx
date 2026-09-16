@@ -25,14 +25,14 @@ export default function Projects() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [customerId, setCustomerId] = useState("");
+  const [customerIds, setCustomerIds] = useState<string[]>([]);
 
   const createMutation = useMutation({
-    mutationFn: () => api.createProject(name, description, customerId || null),
+    mutationFn: () => api.createProject(name, description, customerIds),
     onSuccess: () => {
       setName("");
       setDescription("");
-      setCustomerId("");
+      setCustomerIds([]);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
@@ -44,8 +44,8 @@ export default function Projects() {
   });
 
   const customerMutation = useMutation({
-    mutationFn: ({ id, customer_id }: { id: string; customer_id: string | null }) =>
-      api.updateProject(id, { customer_id }),
+    mutationFn: ({ id, customer_ids }: { id: string; customer_ids: string[] }) =>
+      api.updateProject(id, { customer_ids }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 
@@ -55,6 +55,9 @@ export default function Projects() {
   });
 
   const customerName = (id: string | null) => customers?.find((c) => c.id === id)?.name;
+
+  const toggleId = (ids: string[], id: string) =>
+    ids.includes(id) ? ids.filter((existing) => existing !== id) : [...ids, id];
 
   return (
     <div>
@@ -85,14 +88,20 @@ export default function Projects() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-          <option value="">Müşteri yok (dahili)</option>
-          {customers?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {customers && customers.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center" }}>
+            {customers.map((c) => (
+              <label key={c.id} className="field-label" style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={customerIds.includes(c.id)}
+                  onChange={() => setCustomerIds((ids) => toggleId(ids, c.id))}
+                />
+                {c.name}
+              </label>
+            ))}
+          </div>
+        )}
         <button type="submit" disabled={createMutation.isPending}>
           <IconPlus size={13} />
           Proje ekle
@@ -125,19 +134,29 @@ export default function Projects() {
                   </option>
                 ))}
               </select>
-              <select
-                value={p.customer_id ?? ""}
-                onChange={(e) =>
-                  customerMutation.mutate({ id: p.id, customer_id: e.target.value || null })
-                }
-              >
-                <option value="">Müşteri yok (dahili)</option>
-                {customers?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              {customers && customers.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px" }}>
+                  {customers.map((c) => (
+                    <label
+                      key={c.id}
+                      className="field-label"
+                      style={{ flexDirection: "row", gap: 4, alignItems: "center", fontSize: 11.5 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={p.customer_ids.includes(c.id)}
+                        onChange={() =>
+                          customerMutation.mutate({
+                            id: p.id,
+                            customer_ids: toggleId(p.customer_ids, c.id),
+                          })
+                        }
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}

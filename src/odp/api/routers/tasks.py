@@ -13,7 +13,7 @@ from odp.api.schemas import (
     TaskUpdate,
 )
 from odp.models import ChecklistItem, Task, TaskDependency
-from odp.models.time import utc_now_iso
+from odp.models.time import normalize_utc_iso, utc_now_iso
 from odp.repositories.tasks import TasksRepository
 from odp.services import events
 
@@ -27,8 +27,11 @@ def create_task(body: TaskCreate, conn: sqlite3.Connection = Depends(get_db)) ->
         title=body.title,
         description=body.description,
         owner=body.owner,
-        due_utc=body.due_utc,
-        start_utc=body.start_utc,
+        # Client-supplied timestamps (the browser's `Date.toISOString()`
+        # always carries milliseconds) are reserialized to our canonical
+        # no-fractional-seconds form before storage — see normalize_utc_iso.
+        due_utc=normalize_utc_iso(body.due_utc) if body.due_utc else None,
+        start_utc=normalize_utc_iso(body.start_utc) if body.start_utc else None,
         priority=body.priority,
         tags=body.tags,
         project_id=body.project_id,
@@ -60,6 +63,10 @@ def get_task(task_id: str, conn: sqlite3.Connection = Depends(get_db)) -> Task:
 @router.patch("/{task_id}", response_model=Task)
 def update_task(task_id: str, body: TaskUpdate, conn: sqlite3.Connection = Depends(get_db)) -> Task:
     fields = {k: v for k, v in body.model_dump(exclude_unset=True).items()}
+    if fields.get("due_utc"):
+        fields["due_utc"] = normalize_utc_iso(fields["due_utc"])
+    if fields.get("start_utc"):
+        fields["start_utc"] = normalize_utc_iso(fields["start_utc"])
     updated = TasksRepository(conn).update(task_id, **fields)
     if updated is None:
         raise HTTPException(status_code=404, detail="task not found")

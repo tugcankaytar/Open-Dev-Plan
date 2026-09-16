@@ -94,7 +94,7 @@ class Customer(BaseModel):
 
 class Project(BaseModel):
     id: str = Field(default_factory=new_id)
-    customer_id: str | None = None
+    customer_ids: list[str] = Field(default_factory=list)
     name: str
     description: str = ""
     status: ProjectStatus = ProjectStatus.active
@@ -105,6 +105,7 @@ class Project(BaseModel):
 class Meeting(BaseModel):
     id: str = Field(default_factory=new_id)
     project_id: str | None = None
+    customer_id: str | None = None
     title: str
     start_utc: str
     end_utc: str

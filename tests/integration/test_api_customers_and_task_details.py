@@ -14,20 +14,22 @@ async def test_customer_crud_and_project_link(tmp_settings):
     ):
         customer = (await client.post("/api/customers", json={"name": "Acme A.Ş."})).json()
         assert customer["name"] == "Acme A.Ş."
+        customer2 = (await client.post("/api/customers", json={"name": "Beta Ltd."})).json()
 
         project = (
             await client.post(
-                "/api/projects", json={"name": "Web Sitesi", "customer_id": customer["id"]}
+                "/api/projects",
+                json={"name": "Web Sitesi", "customer_ids": [customer["id"], customer2["id"]]},
             )
         ).json()
-        assert project["customer_id"] == customer["id"]
+        assert set(project["customer_ids"]) == {customer["id"], customer2["id"]}
 
         filtered = await client.get(f"/api/projects?customer_id={customer['id']}")
         assert len(filtered.json()) == 1
 
-        # Explicit clear via PATCH must actually null the field, not skip it.
-        cleared = await client.patch(f"/api/projects/{project['id']}", json={"customer_id": None})
-        assert cleared.json()["customer_id"] is None
+        # Explicit clear via PATCH must actually empty the list, not skip it.
+        cleared = await client.patch(f"/api/projects/{project['id']}", json={"customer_ids": []})
+        assert cleared.json()["customer_ids"] == []
 
         deleted = await client.delete(f"/api/customers/{customer['id']}")
         assert deleted.status_code == 204

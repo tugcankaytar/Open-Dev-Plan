@@ -10,6 +10,16 @@ import ollama
 from odp.services.llm.provider import ChatStreamEvent, ToolCallRequest
 
 
+def _clean_tool_name(name: str) -> str:
+    """Strip harmony-format channel markers gpt-oss occasionally leaks
+    into the parsed tool name (observed live: 'suggest_meeting_slot
+    <|channel|>commentary' instead of a clean 'suggest_meeting_slot') —
+    an Ollama/gpt-oss tool-call parsing quirk, not something we control
+    upstream, so we defend against it here rather than let every call
+    site fail with "unknown tool" and burn a tool-calling round."""
+    return name.split("<|", 1)[0].strip()
+
+
 class OllamaProvider:
     """Talks to a local `ollama serve` instance.
 
@@ -95,7 +105,9 @@ class OllamaProvider:
         async for chunk in stream:
             content = chunk.message.content or ""
             tool_calls = [
-                ToolCallRequest(name=tc.function.name, arguments=dict(tc.function.arguments))
+                ToolCallRequest(
+                    name=_clean_tool_name(tc.function.name), arguments=dict(tc.function.arguments)
+                )
                 for tc in (chunk.message.tool_calls or [])
             ]
             if content or tool_calls:

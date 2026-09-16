@@ -36,6 +36,7 @@ from zoneinfo import ZoneInfo
 from odp.models import (
     ChecklistItem,
     Meeting,
+    MeetingStatus,
     ProjectStatus,
     Task,
     TaskPriority,
@@ -48,8 +49,10 @@ from odp.repositories.projects import ProjectsRepository
 from odp.repositories.tasks import TasksRepository
 from odp.services import events
 from odp.services.common.dates import resolve_weekday
+from odp.services.llm.provider import LLMProvider
 from odp.services.proposals import resolve_proposal
 from odp.services.proposals.resolve import ProposalResolutionError
+from odp.services.scheduling.schedule_service import suggest_meeting_slots
 
 _CONFIRM_FIELD = {
     "confirmed": {
@@ -129,10 +132,13 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "properties": {
                     "name": {"type": "string"},
                     "description": {"type": "string"},
-                    "customer_id": {
-                        "type": "string",
+                    "customer_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
                         "description": (
-                            "Bağlamda verilen müşteri ID'si (opsiyonel, dahili proje ise boş bırak)"
+                            "Bağlamda verilen müşteri ID'lerinin listesi — bir proje BİRDEN "
+                            "FAZLA müşteriye bağlı olabilir (opsiyonel, dahili proje ise boş "
+                            "bırak)"
                         ),
                     },
                 },
@@ -146,7 +152,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             "name": "update_project",
             "description": (
                 "Var olan bir projenin adını, açıklamasını, durumunu veya bağlı "
-                "müşterisini günceller."
+                "müşterilerini günceller."
             ),
             "parameters": {
                 "type": "object",
@@ -158,9 +164,14 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                         "type": "string",
                         "enum": ["active", "paused", "done", "archived"],
                     },
-                    "customer_id": {
-                        "type": "string",
-                        "description": "Yeni müşteri ID'si; müşteriyi kaldırmak için 'yok' yaz",
+                    "customer_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Projenin bağlı olacağı TÜM müşterilerin ID listesi — verilirse "
+                            "mevcut listenin YERİNE geçer (eklemek için önce mevcutları da "
+                            "dahil et; hepsini kaldırmak için boş liste [] gönder)"
+                        ),
                     },
                 },
                 "required": ["project_id"],
@@ -329,6 +340,51 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_task_dependency",
+            "description": (
+                "Bir görevin başka bir göreve bağımlı olduğunu işaretler (o görev bitmeden bu "
+                "başlayamaz gibi). Gantt/kritik yol görünümü için kullanılan veri."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "description": "Bağımlı olan görevin ID'si (önce bunun bitmesi gerekmez)",
+                    },
+                    "depends_on_task_id": {
+                        "type": "string",
+                        "description": "Önce bitmesi gereken görevin ID'si",
+                    },
+                },
+                "required": ["task_id", "depends_on_task_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remove_task_dependency",
+            "description": "İki görev arasındaki bağımlılığı kaldırır.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "description": "Bağımlı olan görevin ID'si",
+                    },
+                    "depends_on_task_id": {
+                        "type": "string",
+                        "description": "Bağımlılığın kaldırılacağı görevin ID'si",
+                    },
+                },
+                "required": ["task_id", "depends_on_task_id"],
+            },
+        },
+    },
     # --- meetings ---
     {
         "type": "function",
@@ -352,8 +408,56 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                         "type": "integer",
                         "description": "Süre, dakika — belirtilmezse 60",
                     },
+                    "customer_id": {
+                        "type": "string",
+                        "description": "Bağlamda verilen müşteri ID'si (opsiyonel)",
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "Bağlamda verilen proje ID'si (opsiyonel)",
+                    },
                 },
                 "required": ["title", "start_time"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_meeting",
+            "description": (
+                "Var olan bir toplantının başlığını, bağlı müşterisini/projesini veya "
+                "durumunu günceller. Bir toplantıyı bir müşteriye bağlamak için bu aracı kullan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Bağlamda verilen toplantı ID'si",
+                    },
+                    "title": {"type": "string"},
+                    "customer_id": {
+                        "type": "string",
+                        "description": "Yeni müşteri ID'si; bağlantıyı kaldırmak için 'yok' yaz",
+                    },
+                    "project_id": {
+                        "type": "string",
+                        "description": "Yeni proje ID'si; bağlantıyı kaldırmak için 'yok' yaz",
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "scheduled",
+                            "recorded",
+                            "transcribing",
+                            "transcribed",
+                            "processed",
+                            "cancelled",
+                        ],
+                    },
+                },
+                "required": ["meeting_id"],
             },
         },
     },
@@ -374,6 +478,33 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                     **_CONFIRM_FIELD,
                 },
                 "required": ["meeting_id", "confirmed"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "suggest_meeting_slot",
+            "description": (
+                "Kullanıcının doğal dille tarif ettiği bir toplantı isteği için ÇAKIŞMASIZ "
+                "uygun saat aralıkları önerir (o günün mevcut toplantılarına göre). Tarih/saat "
+                "HESAPLAMASINI SEN YAPMA — kullanıcının cümlesini olduğu gibi bu araca ver, "
+                "gün ve saat çözümü deterministik kodda yapılır. Bu araç sadece ÖNERİ döndürür, "
+                "hiçbir toplantı OLUŞTURMAZ — kullanıcı bir slotu seçtikten sonra create_meeting "
+                "ile gerçek toplantıyı sen oluşturmalısın."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": (
+                            "Kullanıcının toplantı isteğini anlattığı cümle, olduğu gibi "
+                            "(örn. 'Çarşamba öğleden sonra 1.5 saatlik bir toplantı')"
+                        ),
+                    },
+                },
+                "required": ["text"],
             },
         },
     },
@@ -557,7 +688,7 @@ async def _tool_delete_customer(
         return {"error": f"no customer with id {customer_id!r} — use the id from the context"}
     repo.delete(customer_id)
     events.publish("customers")
-    events.publish("projects")  # linked projects lose their customer_id
+    events.publish("projects")  # linked projects lose this one customer link
     return {"customer_id": customer_id, "result": "deleted"}
 
 
@@ -571,10 +702,15 @@ async def _tool_create_project(
     if not name:
         return {"error": "name is required"}
     project = ProjectsRepository(conn).create(
-        name, str(args.get("description") or ""), _none_if_empty(args.get("customer_id"))
+        name, str(args.get("description") or ""), list(args.get("customer_ids") or [])
     )
     events.publish("projects")
-    return {"project_id": project.id, "name": project.name, "result": "created"}
+    return {
+        "project_id": project.id,
+        "name": project.name,
+        "customer_ids": project.customer_ids,
+        "result": "created",
+    }
 
 
 async def _tool_update_project(
@@ -595,8 +731,8 @@ async def _tool_update_project(
         if status is None:
             return {"error": f"unrecognized status: {args.get('status')!r}"}
         kwargs["status"] = status
-    if "customer_id" in args:
-        kwargs["customer_id"] = _none_if_empty(args.get("customer_id"))
+    if "customer_ids" in args:
+        kwargs["customer_ids"] = list(args.get("customer_ids") or [])
 
     updated = repo.update(project_id, **kwargs)
     events.publish("projects")
@@ -605,6 +741,7 @@ async def _tool_update_project(
         "project_id": updated.id,
         "name": updated.name,
         "status": updated.status.value,
+        "customer_ids": updated.customer_ids,
         "result": "updated",
     }
 
@@ -796,6 +933,49 @@ async def _tool_delete_checklist_item(
     return {"task_id": task_id, "title": found.title, "result": "deleted"}
 
 
+async def _tool_add_task_dependency(
+    conn: sqlite3.Connection, args: dict[str, Any], _tz: str
+) -> dict[str, Any]:
+    task_id = str(args.get("task_id") or "")
+    depends_on_task_id = str(args.get("depends_on_task_id") or "")
+    if not task_id or not depends_on_task_id:
+        return {"error": "task_id and depends_on_task_id are both required"}
+    if task_id == depends_on_task_id:
+        return {"error": "a task cannot depend on itself"}
+    repo = TasksRepository(conn)
+    if repo.get(task_id) is None:
+        return {"error": f"no task with id {task_id!r} — use the id from the context"}
+    if repo.get(depends_on_task_id) is None:
+        return {"error": f"no task with id {depends_on_task_id!r} — use the id from the context"}
+    dep = repo.add_dependency(task_id, depends_on_task_id)
+    events.publish("tasks")
+    return {
+        "dependency_id": dep.id,
+        "task_id": task_id,
+        "depends_on_task_id": depends_on_task_id,
+        "result": "created",
+    }
+
+
+async def _tool_remove_task_dependency(
+    conn: sqlite3.Connection, args: dict[str, Any], _tz: str
+) -> dict[str, Any]:
+    task_id = str(args.get("task_id") or "")
+    depends_on_task_id = str(args.get("depends_on_task_id") or "")
+    repo = TasksRepository(conn)
+    matches = [
+        d
+        for d in repo.list_dependencies_for_task(task_id)
+        if d.depends_on_task_id == depends_on_task_id
+    ]
+    if not matches:
+        return {"error": "no such dependency found"}
+    for dep in matches:
+        repo.remove_dependency(dep.id)
+    events.publish("tasks")
+    return {"task_id": task_id, "depends_on_task_id": depends_on_task_id, "result": "deleted"}
+
+
 # ================================================================ meetings
 
 
@@ -831,6 +1011,8 @@ async def _tool_create_meeting(
         start_utc=to_utc_iso(start_dt),
         end_utc=to_utc_iso(end_dt),
         timezone=timezone,
+        customer_id=_none_if_empty(args.get("customer_id")),
+        project_id=_none_if_empty(args.get("project_id")),
         created_at=now,
         updated_at=now,
     )
@@ -841,7 +1023,43 @@ async def _tool_create_meeting(
         "title": created.title,
         "start_utc": created.start_utc,
         "end_utc": created.end_utc,
+        "customer_id": created.customer_id,
+        "project_id": created.project_id,
         "result": "created",
+    }
+
+
+async def _tool_update_meeting(
+    conn: sqlite3.Connection, args: dict[str, Any], _tz: str
+) -> dict[str, Any]:
+    meeting_id = str(args.get("meeting_id") or "")
+    repo = MeetingsRepository(conn)
+    if repo.get(meeting_id) is None:
+        return {"error": f"no meeting with id {meeting_id!r} — use the id from the context"}
+
+    kwargs: dict[str, Any] = {}
+    if args.get("title"):
+        kwargs["title"] = args["title"]
+    if "customer_id" in args:
+        kwargs["customer_id"] = _none_if_empty(args.get("customer_id"))
+    if "project_id" in args:
+        kwargs["project_id"] = _none_if_empty(args.get("project_id"))
+    if args.get("status"):
+        try:
+            kwargs["status"] = MeetingStatus(args["status"])
+        except ValueError:
+            return {"error": f"unrecognized status: {args.get('status')!r}"}
+
+    updated = repo.update(meeting_id, **kwargs)
+    events.publish("meetings")
+    assert updated is not None
+    return {
+        "meeting_id": updated.id,
+        "title": updated.title,
+        "customer_id": updated.customer_id,
+        "project_id": updated.project_id,
+        "status": updated.status.value,
+        "result": "updated",
     }
 
 
@@ -858,6 +1076,33 @@ async def _tool_delete_meeting(
     events.publish("meetings")
     events.publish("proposals")  # its proposals cascade-deleted with it
     return {"meeting_id": meeting_id, "result": "deleted"}
+
+
+async def _tool_suggest_meeting_slot(
+    conn: sqlite3.Connection,
+    args: dict[str, Any],
+    timezone: str,
+    *,
+    provider: LLMProvider | None = None,
+    model: str | None = None,
+) -> dict[str, Any]:
+    text = str(args.get("text") or "").strip()
+    if not text:
+        return {"error": "text is required"}
+    if provider is None or model is None:
+        return {"error": "scheduling assistant is unavailable right now"}
+    suggestion = await suggest_meeting_slots(
+        conn, provider, text=text, model=model, timezone=timezone
+    )
+    return {
+        "target_date": suggestion.target_date_iso,
+        "duration_minutes": suggestion.intent.duration_minutes,
+        "slots": [
+            {"start_utc": to_utc_iso(s.start), "end_utc": to_utc_iso(s.end)}
+            for s in suggestion.slots
+        ],
+        "result": "suggested" if suggestion.slots else "no_free_slot",
+    }
 
 
 # =============================================================== proposals
@@ -887,6 +1132,28 @@ async def _tool_resolve_proposal(
     }
 
 
+# Observed live: the model occasionally sends a generic "id" instead of
+# the schema's entity-specific key (e.g. "id" instead of "project_id" on
+# update_project) — this is a recovery alias, not a schema relaxation;
+# the tool schemas keep requiring the specific key so a well-behaved
+# model still gets that as guidance.
+_PRIMARY_ID_KEY: dict[str, str] = {
+    "update_customer": "customer_id",
+    "delete_customer": "customer_id",
+    "update_project": "project_id",
+    "delete_project": "project_id",
+    "update_task": "task_id",
+    "delete_task": "task_id",
+    "add_checklist_item": "task_id",
+    "toggle_checklist_item": "task_id",
+    "delete_checklist_item": "task_id",
+    "add_task_dependency": "task_id",
+    "remove_task_dependency": "task_id",
+    "update_meeting": "meeting_id",
+    "delete_meeting": "meeting_id",
+    "resolve_proposal": "proposal_id",
+}
+
 _HANDLERS: dict[str, Any] = {
     "create_customer": _tool_create_customer,
     "update_customer": _tool_update_customer,
@@ -900,20 +1167,42 @@ _HANDLERS: dict[str, Any] = {
     "add_checklist_item": _tool_add_checklist_item,
     "toggle_checklist_item": _tool_toggle_checklist_item,
     "delete_checklist_item": _tool_delete_checklist_item,
+    "add_task_dependency": _tool_add_task_dependency,
+    "remove_task_dependency": _tool_remove_task_dependency,
     "create_meeting": _tool_create_meeting,
+    "update_meeting": _tool_update_meeting,
     "delete_meeting": _tool_delete_meeting,
+    "suggest_meeting_slot": _tool_suggest_meeting_slot,
     "resolve_proposal": _tool_resolve_proposal,
 }
 
 
 async def execute_tool(
-    conn: sqlite3.Connection, name: str, arguments: dict[str, Any], *, timezone: str
+    conn: sqlite3.Connection,
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    timezone: str,
+    provider: LLMProvider | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     handler = _HANDLERS.get(name)
     if handler is None:
         return {"error": f"unknown tool: {name}"}
+    expected_key = _PRIMARY_ID_KEY.get(name)
+    if expected_key and not arguments.get(expected_key) and arguments.get("id"):
+        arguments = {**arguments, expected_key: arguments["id"]}
     try:
-        result: dict[str, Any] = await handler(conn, arguments, timezone)
+        # suggest_meeting_slot is the one tool that needs a second LLM call
+        # (to parse the natural-language request into a schedule intent —
+        # see services/scheduling/schedule_service.py); every other handler
+        # only needs the DB connection and the resolved timezone.
+        if name == "suggest_meeting_slot":
+            result: dict[str, Any] = await handler(
+                conn, arguments, timezone, provider=provider, model=model
+            )
+        else:
+            result = await handler(conn, arguments, timezone)
         return result
     except Exception as exc:
         # Any failure is reported back to the model as a tool result (so it
