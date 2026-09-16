@@ -62,7 +62,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 # RUF001-3 flag ambiguous-looking Unicode (e.g. Turkish dotless ı vs. Latin i)
 # in string literals. This codebase is intentionally full of Turkish text
 # (prompts, UI strings, test fixtures), so that check is pure noise here.
-ignore = ["RUF001", "RUF002", "RUF003"]
+# B008 flags function calls in argument defaults — but FastAPI's Depends()
+# is designed to be used exactly that way; it's the framework's own idiom,
+# not a mutable-default bug.
+ignore = ["RUF001", "RUF002", "RUF003", "B008"]
 
 [tool.mypy]
 python_version = "3.12"
