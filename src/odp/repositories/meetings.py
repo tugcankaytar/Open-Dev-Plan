@@ -104,6 +104,16 @@ class MeetingsRepository:
         ).fetchall()
         return [self._row_to_segment(row) for row in rows]
 
+    def get_segments_by_ids(self, segment_ids: list[str]) -> list[TranscriptSegment]:
+        if not segment_ids:
+            return []
+        placeholders = ",".join("?" for _ in segment_ids)
+        # placeholders is a fixed string of "?" separated by commas, built from the
+        # length of segment_ids only — never from user-controlled SQL text.
+        query = f"SELECT * FROM transcript_segments WHERE id IN ({placeholders}) ORDER BY seq ASC"
+        rows = self._conn.execute(query, segment_ids).fetchall()
+        return [self._row_to_segment(row) for row in rows]
+
     @staticmethod
     def _row_to_meeting(row: sqlite3.Row) -> Meeting:
         return Meeting(
