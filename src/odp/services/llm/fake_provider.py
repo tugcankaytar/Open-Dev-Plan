@@ -130,7 +130,17 @@ class FakeLLMProvider:
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[ChatStreamEvent]:
         last_content = str(messages[-1].get("content", "")) if messages else ""
-        self.calls.append({"kind": "stream_chat", "prompt": last_content, "model": model})
+        system_content = next(
+            (str(m.get("content", "")) for m in messages if m.get("role") == "system"), ""
+        )
+        self.calls.append(
+            {
+                "kind": "stream_chat",
+                "prompt": last_content,
+                "system": system_content,
+                "model": model,
+            }
+        )
 
         if self._stream_chat_sequence:
             for event in self._stream_chat_sequence.pop(0):

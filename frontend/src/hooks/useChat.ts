@@ -20,6 +20,24 @@ interface ChatSseEvent {
   error?: string;
 }
 
+// The wire format only carries {role, content} per history turn — there's
+// nowhere else to put "what tool the assistant called and what it
+// returned." Without this, a follow-up like "geri 13.00'e çek" (revert
+// the thing you just did) loses every id and argument the model would
+// need to act on it, and the model has to ask "which one?" again even
+// though it JUST did the action. So a past assistant turn's actions are
+// serialized into its own content before being sent back as history.
+function serializeActionsForHistory(actions: ChatAction[] | undefined): string {
+  if (!actions || actions.length === 0) return "";
+  return actions
+    .map((a) => {
+      const args = JSON.stringify(a.arguments);
+      const result = a.result ? JSON.stringify(a.result) : "(sonuç yok)";
+      return `[araç çağrısı: ${a.name}(${args}) -> ${result}]`;
+    })
+    .join("\n");
+}
+
 /** Streams a chat reply from POST /api/chat by reading the response body
  * as a stream (not EventSource — the request needs a body, and
  * EventSource only issues GET). Parses the same `data: {...}\n\n` shape
@@ -37,7 +55,12 @@ export function useChat() {
       if (!trimmed || isStreaming) return;
 
       setError(null);
-      const history = messages.slice(-16).map((m) => ({ role: m.role, content: m.content }));
+      const history = messages.slice(-16).map((m) => {
+        if (m.role !== "assistant") return { role: m.role, content: m.content };
+        const trace = serializeActionsForHistory(m.actions);
+        const content = trace ? (m.content ? `${trace}\n${m.content}` : trace) : m.content;
+        return { role: m.role, content };
+      });
       setMessages((prev) => [
         ...prev,
         { role: "user", content: trimmed },

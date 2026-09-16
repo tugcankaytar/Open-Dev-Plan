@@ -91,6 +91,16 @@ class OllamaProvider:
         # thought block before any visible content (confirmed live on both
         # gpt-oss:20b and qwen3:14b), which would otherwise make the chat
         # panel sit silent for several seconds before anything streams.
+        #
+        # Tried think=True here to fix a multi-turn follow-up reasoning gap
+        # (see chat_service.py's _last_action_summary) and reverted it:
+        # confirmed live, reproducibly, that with think=True this model
+        # sometimes narrates a tool call as plain text ("[tool: x]{...}")
+        # instead of actually emitting a structured tool call — silently
+        # doing nothing while telling the user it acted. That is a worse
+        # failure than the reasoning gap it was meant to fix, so the
+        # follow-up problem is solved deterministically in chat_service.py
+        # instead (no model reasoning required) and thinking stays off.
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": messages,

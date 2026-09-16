@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from odp.services.chat import ChatTurn, stream_chat_reply
+from odp.services.chat.chat_service import _last_action_summary
 from odp.services.llm import FakeLLMProvider
 from odp.services.llm.provider import ChatStreamEvent, ToolCallRequest
 
@@ -118,3 +119,86 @@ async def test_stream_chat_reply_stops_after_max_tool_rounds(db_conn):
 
     final_text = "".join(e.delta for e in events if e.delta is not None)
     assert "tamamlayamadım" in final_text
+
+
+# =========================================== _last_action_summary
+
+
+def test_last_action_summary_extracts_the_id_from_the_trace():
+    history = [
+        ChatTurn(role="user", content="eyüp lojistik toplantısını 15.00 saatine ayarla"),
+        ChatTurn(
+            role="assistant",
+            content=(
+                '[araç çağrısı: update_meeting({"meeting_id": "abc123", "start_time": "15:00"}) '
+                '-> {"meeting_id": "abc123", "result": "updated"}]\nToplantı güncellendi.'
+            ),
+        ),
+    ]
+    assert _last_action_summary(history) == "update_meeting(meeting_id='abc123')"
+
+
+def test_last_action_summary_picks_the_most_recent_trace():
+    history = [
+        ChatTurn(
+            role="assistant",
+            content='[araç çağrısı: create_task({"title": "X"}) -> {"task_id": "old"}]\nTamam.',
+        ),
+        ChatTurn(role="user", content="şimdi de şunu yap"),
+        ChatTurn(
+            role="assistant",
+            content='[araç çağrısı: create_task({"title": "Y"}) -> {"task_id": "new"}]\nTamam.',
+        ),
+    ]
+    assert _last_action_summary(history) == "create_task(task_id='new')"
+
+
+def test_last_action_summary_returns_none_without_any_trace():
+    history = [
+        ChatTurn(role="user", content="merhaba"),
+        ChatTurn(role="assistant", content="merhaba, nasıl yardımcı olabilirim?"),
+    ]
+    assert _last_action_summary(history) is None
+
+
+def test_last_action_summary_falls_back_to_tool_name_without_an_id_field():
+    history = [
+        ChatTurn(
+            role="assistant",
+            content=(
+                '[araç çağrısı: suggest_meeting_slot({"text": "cuma"}) '
+                '-> {"result": "suggested", "slots": []}]\nÖneriler var.'
+            ),
+        ),
+    ]
+    assert _last_action_summary(history) == "suggest_meeting_slot"
+
+
+async def test_stream_chat_reply_injects_last_action_into_the_system_prompt(db_conn):
+    # A regression guard for the fix above: the deterministic "SON İŞLEM"
+    # line must actually reach the model, not just exist as a helper.
+    provider = FakeLLMProvider()
+    provider.add_stream_chat_response("onu geri al", ["tamam"])
+
+    events = [
+        e
+        async for e in stream_chat_reply(
+            db_conn,
+            provider,
+            message="onu geri al",
+            history=[
+                ChatTurn(role="user", content="bir görev oluştur"),
+                ChatTurn(
+                    role="assistant",
+                    content=(
+                        '[araç çağrısı: create_task({"title": "X"}) '
+                        '-> {"task_id": "abc", "result": "created"}]\nOluşturuldu.'
+                    ),
+                ),
+            ],
+            model="gpt-oss:20b",
+        )
+    ]
+    assert "".join(e.delta for e in events if e.delta is not None) == "tamam"
+    assert "SON İŞLEM" in provider.calls[0]["system"]
+    assert "create_task(task_id='abc')" in provider.calls[0]["system"]

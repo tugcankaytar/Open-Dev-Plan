@@ -10,22 +10,58 @@ const SUGGESTED_PROMPTS = [
 ];
 
 const ACTION_LABELS: Record<string, { pending: string; done: (a: ChatAction) => string }> = {
+  create_customer: {
+    pending: "Müşteri oluşturuluyor…",
+    done: (a) => `Müşteri oluşturuldu: ${a.arguments.name ?? ""}`,
+  },
+  update_customer: {
+    pending: "Müşteri güncelleniyor…",
+    done: (a) => `Müşteri güncellendi: ${a.result?.name ?? ""}`,
+  },
+  delete_customer: { pending: "Müşteri siliniyor…", done: () => "Müşteri silindi" },
+  create_project: {
+    pending: "Proje oluşturuluyor…",
+    done: (a) => `Proje oluşturuldu: ${a.arguments.name ?? ""}`,
+  },
+  update_project: {
+    pending: "Proje güncelleniyor…",
+    done: (a) => `Proje güncellendi: ${a.result?.name ?? ""}`,
+  },
+  delete_project: { pending: "Proje siliniyor…", done: () => "Proje silindi" },
   create_task: {
     pending: "Görev oluşturuluyor…",
     done: (a) => `Görev oluşturuldu: ${a.arguments.title ?? ""}`,
   },
-  update_task_status: {
-    pending: "Görev durumu güncelleniyor…",
-    done: (a) => `Görev durumu güncellendi: ${a.result?.status ?? ""}`,
+  update_task: {
+    pending: "Görev güncelleniyor…",
+    done: (a) => `Görev güncellendi: ${a.result?.title ?? ""}`,
   },
+  delete_task: { pending: "Görev siliniyor…", done: () => "Görev silindi" },
   add_checklist_item: {
     pending: "Alt görev ekleniyor…",
     done: (a) => `Alt görev eklendi: ${a.arguments.title ?? ""}`,
+  },
+  toggle_checklist_item: {
+    pending: "Alt görev güncelleniyor…",
+    done: (a) => `Alt görev güncellendi: ${a.result?.title ?? ""}`,
+  },
+  delete_checklist_item: { pending: "Alt görev kaldırılıyor…", done: () => "Alt görev kaldırıldı" },
+  add_task_dependency: { pending: "Bağımlılık ekleniyor…", done: () => "Görev bağımlılığı eklendi" },
+  remove_task_dependency: {
+    pending: "Bağımlılık kaldırılıyor…",
+    done: () => "Görev bağımlılığı kaldırıldı",
   },
   create_meeting: {
     pending: "Toplantı oluşturuluyor…",
     done: (a) => `Toplantı oluşturuldu: ${a.arguments.title ?? ""}`,
   },
+  update_meeting: {
+    pending: "Toplantı güncelleniyor…",
+    done: (a) => `Toplantı güncellendi: ${a.result?.title ?? ""}`,
+  },
+  delete_meeting: { pending: "Toplantı siliniyor…", done: () => "Toplantı silindi" },
+  suggest_meeting_slot: { pending: "Uygun saat aranıyor…", done: () => "Uygun saatler önerildi" },
+  resolve_proposal: { pending: "Öneri işleniyor…", done: () => "Öneri işlendi" },
 };
 
 function describeAction(action: ChatAction): { text: string; failed: boolean } {
